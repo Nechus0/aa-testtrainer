@@ -57,7 +57,34 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > select teil, thema, left(frage, 70) from fr_frage order by teil, thema;
 > ```
 >
-> ### Schritt 2 – Fachtests erzeugen (75 Fragen)
+> ### Schritt 2 – Maßstab nehmen (wichtig, nicht überspringen)
+> In der Tabelle `frage` stehen unter den Abschnitten `Original 2019` und
+> `Original 2023` die **150 tatsächlichen Prüfungsfragen des Auswärtigen
+> Amts**. Sie sind der verbindliche Maßstab für Zuschnitt, Frageform, Länge,
+> Schwierigkeit und Art der Ablenker. Lies vor dem Schreiben je Kategorie
+> mindestens zehn davon vollständig:
+>
+> ```sql
+> select kategorie, thema, frage, optionen, loesung, erlaeuterung
+>   from frage where block in ('Original 2019','Original 2023')
+>   order by kategorie, random() limit 40;
+> ```
+>
+> Für Französisch gilt dasselbe mit den amtlichen Musteraufgaben:
+> ```sql
+> select teil, thema, frage, optionen, loesung from fr_frage where block = 'AA-Musteraufgaben';
+> select titel, quelle, text from fr_text where block = 'AA-Musteraufgaben';
+> ```
+>
+> Gleiche Fragelänge, gleicher Ton, gleiche Art von Ablenkern, gleiche Mischung
+> aus Faktenwissen und Verständnis. Keine neuen Aufgabenformate erfinden.
+>
+> Ergänzend liegen im Cloudspeicher (Eimer `quellen`) 111 fachliche Quellen –
+> Bundeszentrale für politische Bildung, Deutscher Bundestag, Auswärtiges Amt,
+> Deutsche Bundesbank, amtliche Vertragstexte. Ihr Verzeichnis steht in der
+> Tabelle `quelle` mit den Spalten `herausgeber` und `einstufung`.
+>
+> ### Schritt 3 – Fachtests erzeugen (75 Fragen)
 > Genau 25 Fragen je Kategorie, exakt im Zuschnitt der veröffentlichten
 > AA-Fachtests:
 >
@@ -94,7 +121,7 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > bis `W-TNN-25`, wobei NN die zweistellige Tagesnummer ist
 > (Tag 7 → `R-T07-01`, Tag 12 → `R-T12-01`).
 >
-> ### Schritt 3 – Sprachtest Französisch erzeugen (52 Aufgaben)
+> ### Schritt 4 – Sprachtest Französisch erzeugen (52 Aufgaben)
 > Streng nach den amtlichen Musteraufgaben (Stand 04.09.2025): 52 Aufgaben,
 > 30 Minuten, 60 Punkte, bestanden ab 30. Niveau B2.
 >
@@ -117,7 +144,7 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > „Oberfeld – Unterfeld“. Achte auf sprachliche Korrektheit: Akzente,
 > Elisionen, Typografie (« … » mit schmalem Leerraum, Apostroph ’).
 >
-> ### Schritt 4 – Schreiben
+> ### Schritt 5 – Schreiben
 > Prüfe vor dem Schreiben selbst: 25/25/25 Fachfragen, 3 Artikel, 8/22/22
 > Französischaufgaben, alle Kennungen neu, alle `optionen` mit genau vier
 > Einträgen, alle `loesung` zwischen 0 und 3. Stimmt etwas nicht, korrigiere es
@@ -145,7 +172,7 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > (`d''après`). `stand` ist das heutige Datum. `text_id` ist bei Wortschatz und
 > Grammatik `null`.
 >
-> ### Schritt 5 – Nachkontrolle
+> ### Schritt 6 – Nachkontrolle
 > ```sql
 > select block, kategorie, count(*) from frage where block = 'Tag N' group by 1,2;
 > select block, teil, count(*) from fr_frage where block = 'Tag N' group by 1,2;
@@ -170,3 +197,12 @@ Kontrolle des Bestands:
 select block, kategorie, count(*) from frage group by 1,2 order by 1,2;
 select block, teil, count(*) from fr_frage group by 1,2 order by 1,2;
 ```
+
+---
+
+## Bestand bleibt erhalten
+
+Die Aufgabe ergänzt ausschließlich. Bestehende Abschnitte – insbesondere
+`Original 2019`, `Original 2023` und die `AA-Musteraufgaben` – werden nie
+verändert oder gelöscht. Alle `insert`-Anweisungen enden auf
+`on conflict (id) do nothing`.
