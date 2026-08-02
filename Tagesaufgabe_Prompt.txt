@@ -1,0 +1,40 @@
+SCHEDULED TASK · TESTTRAINER AA
+================================================================================
+Name        : Testtrainer AA – täglicher Abschnitt
+Zeitplan    : täglich 06:00 Uhr (Europe/Berlin)
+Cron in UTC : 0 4 * * *
+Benachrichtigung: Push an, damit du merkst, wenn ein Lauf fehlschlägt
+
+Voraussetzung: In der Sitzung müssen der Arbeitsordner (mit Testtrainer.html,
+fragenpool.js, fragenpool_fr.js, den beiden Hilfsskripten und
+Anleitung_Tagesaufgabe.md) und möglichst auch der PDF-Korpus als Ordner
+verbunden sein.
+
+Der Text ab der Trennlinie ist der komplette Prompt. Vor dem Anlegen die beiden
+Pfade an die eigene Ablage anpassen — sie kommen zweimal vor.
+================================================================================
+
+Erzeuge den heutigen Abschnitt für Joschas Testtrainer zum Auswahlverfahren des Auswärtigen Amts (höherer Dienst, schriftliche Prüfung am 1. September 2026).
+
+Arbeite strikt nach der Arbeitsanweisung auf dem Gerät:
+/Users/joschapocha/Documents/Claude Projekte/Test Trainer/Anleitung_Tagesaufgabe.md
+
+Erster Schritt: diese Datei mit mcp__remote-devices__device_stage_files stagen und vollständig lesen. Sie beschreibt beide Lieferungen, den Ablauf inklusive Bestimmung der Tagesnummer, Stilregeln, JSON-Formate, Themenrotation, Quellen und Niveauvorgaben. Danach genau so vorgehen.
+
+Kurzfassung, falls die Anweisung nicht erreichbar ist:
+
+A) Fachtests — 75 neue Fragen, je 25 in den Kategorien recht, geschichte, wirtschaft. Genau diese drei Kategorien, entsprechend den drei Fachtests; eine Kategorie "allgemein" existiert nicht. Stil exakt wie in den amtlichen Fachtests 2019/2023: vier Optionen, genau eine richtig, kurzer Fragestamm, plausible Distraktoren, Erläuterung von 2-4 Sätzen. Nach neue_fragen.json, dann: python3 fragen_ergaenzen.py fragenpool.js neue_fragen.json
+
+B) Sprachtest Französisch — 25 neue Aufgaben: ein eigenständig formulierter Zeitungsartikel von 90 bis 150 Wörtern mit genau drei Verständnisfragen, dazu 11 Wortschatz- und 11 Grammatikfragen. Vorher verbindlich stagen und lesen:
+- /Users/joschapocha/Desktop/AA-Vorbereitung-PDFs/10_Musteraufgaben_Auswahlverfahren/Sprachtest_Franzoesisch_Musteraufgaben.pdf (amtliche Musteraufgaben, einziger verbindlicher Maßstab für Format und Anspruch)
+- /Users/joschapocha/Desktop/AA-Vorbereitung-PDFs/10_Musteraufgaben_Auswahlverfahren/Sprachtest_Franzoesisch_Leseprobe_Bewerbertrainer.pdf (nur zur Orientierung über Themenbandbreite und Vokabular, anderes Aufgabenformat, nichts übernehmen)
+- das Korpusheft der Französisch-Rotation für die heutige Tagesnummer aus /Users/joschapocha/Desktop/AA-Vorbereitung-PDFs — daraus wird der Sachverhalt entnommen und ein eigener französischer Presseartikel geschrieben, nichts übersetzt und nichts zitiert.
+Niveau B2 mit Ausschlägen nach B2+, Frage und Optionen vollständig auf Französisch, Erläuterung auf Deutsch, Quellenangabe ohne reale Zeitung. Nach neue_fragen_fr.json, dann: python3 fragen_ergaenzen_fr.py fragenpool_fr.js neue_fragen_fr.json
+
+Danach fragenpool.js und fragenpool_fr.js mit device_commit_files (force: true) zurück in den Ordner "Test Trainer" schreiben.
+
+Sprachliche Korrektheit im Französischen hat Vorrang vor Menge: jeden Satz einzeln gegenlesen, im Zweifel umformulieren oder streichen. Aktuelle Fakten immer per Websuche verifizieren. Eine falsche Aufgabe ist schlimmer als eine fehlende.
+
+Wenn das Gerät nicht erreichbar ist: Aufgaben trotzdem erzeugen und beide JSON-Dateien per SendUserFile schicken, mit dem Hinweis, sie manuell mit den Hilfsskripten einzuspielen.
+
+Am Ende eine kurze Meldung: Tagesnummer, Fragen je Kategorie und für Französisch, Themenschwerpunkte, Poolgröße gesamt, Tage bis zum 1. September. Keine langen Erklärungen.

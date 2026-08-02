@@ -1,0 +1,17 @@
+# Zwischenstände der Hilfsskripte
+*.bak
+*.tmp
+neue_fragen.json
+neue_fragen_fr.json
+
+# Fortschrittsexporte (persönliche Daten)
+testtrainer-fortschritt-*.json
+testtrainer-antworten-*.csv
+
+# Werkzeuge
+node_modules/
+package-lock.json
+*.png
+
+# Betriebssystem
+.DS_Store
