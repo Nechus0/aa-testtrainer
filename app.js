@@ -317,7 +317,7 @@ async function sichern(sess, neueAntworten){
    GERÜST DER ANSICHTEN
    ===================================================================== */
 /* Oben stehen die Übungsbereiche, alles Verwaltende liegt im Klappmenü. */
-const HAUPT = [['dash','Dashboard'], ['train','Fachtests'], ['fr','Französisch'],
+const HAUPT = [['dash','Dashboard'], ['train','Trainer'],
                ['archiv','Fehlerarchiv'], ['pool','Fragenpool']];
 const menuPunkte = ()=> istAdmin()
   ? [['konto','Konto','Zugang und Installation'], null,
@@ -370,7 +370,11 @@ function schaleBauen(){
       </div>
     </div>
     <div class="wrap">
-      <div class="grid g4" id="kpis"></div>
+      <div class="sec" style="margin-top:0">
+        <div class="sec-h"><h2>Fragen des Tages</h2><span class="note" id="tag-note"></span></div>
+        <div id="tagesaufgaben"></div>
+      </div>
+      <div class="grid g4" id="kpis" style="margin-top:56px"></div>
       <div class="sec">
         <div class="sec-h"><h2>Fachtests</h2><span class="note">je 25 Fragen in 10 Minuten</span></div>
         <div class="grid g3" id="katcards"></div>
@@ -401,54 +405,22 @@ function schaleBauen(){
     <div class="wrap page">
       <div class="eyebrow">Üben</div>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Fachtests</h1>
-        <p class="lead">Im Original hast du 25 Fragen in 10 Minuten – gut 20 Sekunden pro Frage. Alle Modi mit Timer bilden das nach.</p>
+        <h1>Trainer</h1>
+        <p class="lead">Stell dir zusammen, was du üben willst: Bereiche, Umfang, Auswahl und Zeitdruck. Darunter die Prüfungssimulationen im Originalformat.</p>
       </div></div>
     </div>
     <div class="wrap">
       <div class="sec" style="margin-top:0">
-        <div class="sec-h"><h2>Heute</h2><span class="note" id="today-note"></span></div>
-        <div class="modes" id="modes-today"></div>
+        <div class="sec-h"><h2>Training zusammenstellen</h2><span class="note" id="tr-note"></span></div>
+        <div class="card pad" id="trainer"></div>
       </div>
       <div class="sec">
-        <div class="sec-h"><h2>Prüfungssimulation</h2><span class="note">drei Tests hintereinander</span></div>
+        <div class="sec-h"><h2>Prüfungssimulation</h2><span class="note">Originalformat mit Prüfungszeit</span></div>
         <div class="modes" id="modes-exam"></div>
-      </div>
-      <div class="sec">
-        <div class="sec-h"><h2>Gezielt üben</h2></div>
-        <div class="modes" id="modes-drill"></div>
       </div>
       <div class="sec">
         <div class="sec-h"><h2>Alle Tagespakete</h2><span class="note" id="pakete-note"></span></div>
         <div class="card" id="pakete"></div>
-      </div>
-    </div>`;
-
-  $('#fr-menu').innerHTML = `
-    <div class="wrap page">
-      <div class="eyebrow">Zweite Prüfsprache</div>
-      <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Sprachtest Französisch</h1>
-        <p class="lead">52 Fragen in 30 Minuten, 60 Punkte, bestanden ab 30. Drei Teile, die du dir zeitlich selbst einteilen kannst.</p>
-      </div></div>
-    </div>
-    <div class="wrap">
-      <div class="spec" id="fr-spec"></div>
-      <div class="sec">
-        <div class="sec-h"><h2>Heute</h2><span class="note" id="fr-today-note"></span></div>
-        <div class="modes" id="fr-today"></div>
-      </div>
-      <div class="sec">
-        <div class="sec-h"><h2>Prüfungssimulation</h2><span class="note">Originalformat des Auswärtigen Amts</span></div>
-        <div class="modes" id="fr-exam"></div>
-      </div>
-      <div class="sec">
-        <div class="sec-h"><h2>Einzelne Teile</h2></div>
-        <div class="modes" id="fr-drill"></div>
-      </div>
-      <div class="sec">
-        <div class="sec-h"><h2>Alle Tagespakete</h2><span class="note" id="fr-pakete-note"></span></div>
-        <div class="card" id="fr-pakete"></div>
       </div>
     </div>`;
 
@@ -467,10 +439,14 @@ function schaleBauen(){
       <div class="eyebrow">Bestand</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Fragenpool</h1>
-        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung.</p>
+        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung – und wie weit der Lehrplan abgedeckt ist.</p>
       </div></div>
     </div>
     <div class="wrap">
+      <div class="sec" style="margin-top:0;margin-bottom:44px">
+        <div class="sec-h"><h2>Abdeckung des Lehrplans</h2><span class="note" id="lp-note"></span></div>
+        <div id="lehrplan"></div>
+      </div>
       <div class="card pad" style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:26px">
         <label class="fld" style="flex:1;min-width:220px">Suche
           <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …"></label>
@@ -562,8 +538,7 @@ function go(v){
   $$('.view').forEach(s=>s.classList.toggle('on', s.id==='v-'+v));
   window.scrollTo({top:0});
   if(v==='dash') renderDash();
-  if(v==='train'){ if(!LAUF || LAUF.view!=='train' || LAUF.phase==='ergebnis'){ LAUF=null; renderMenu(); } }
-  if(v==='fr'){ if(!LAUF || LAUF.view!=='fr' || LAUF.phase==='ergebnis'){ LAUF=null; renderFrMenu(); } }
+  if(v==='train'){ if(!LAUF || LAUF.phase==='ergebnis'){ LAUF=null; renderMenu(); } }
   if(v==='archiv') renderArchiv();
   if(v==='pool') renderPool();
   if(v==='quellen') renderQuellen();
@@ -639,7 +614,61 @@ function renderDash(){
       </div></div>`;
   }).join('');
 
-  frcard(); chart(); weak(); sessionsListe();
+  tagesaufgaben(); frcard(); chart(); weak(); sessionsListe();
+}
+
+/* ---------- Fragen des Tages ----------
+   Vier Aufgaben je Tag: die drei Fachtests und der Sprachtest. Alle ohne
+   Zeitdruck – das Original bildet nur die Prüfungssimulation nach. */
+function tagesaufgaben(){
+  const box=$('#tagesaufgaben'); if(!box) return;
+  const l=letzteJeFrage();
+  const tagF=neuesteTage()[0], tagFr=frTage()[0];
+  const posten=[];
+  if(tagF) for(const k of ALLE){
+    const qs=F.filter(q=>q.block===tagF && q.kategorie===k);
+    if(qs.length) posten.push({kls:k, marke:KAT[k].kurz, name:KAT[k].name, block:tagF, qs,
+      cfg:{typ:'block', block:tagF, kat:k, zeit:0, titel:KAT[k].kurz+' · '+tagF}});
+  }
+  if(tagFr){
+    const qs=FR.filter(q=>q.block===tagFr);
+    if(qs.length) posten.push({kls:'franzoesisch', marke:KAT_FR.kurz, name:'Sprachtest Französisch', block:tagFr, qs,
+      cfg:{typ:'frBlockAlle', block:tagFr, zeit:0, titel:'Französisch · '+tagFr}});
+  }
+  if(!posten.length){
+    $('#tag-note').textContent='';
+    box.innerHTML='<div class="card"><div class="empty">Noch kein Tagesabschnitt vorhanden. Der nächste kommt morgen früh um 6 Uhr.</div></div>';
+    return;
+  }
+  const offenGesamt = posten.reduce((a,p)=>a+p.qs.filter(q=>!l[q.id]).length, 0);
+  const gesamt = posten.reduce((a,p)=>a+p.qs.length, 0);
+  $('#tag-note').textContent = offenGesamt
+    ? offenGesamt+' von '+gesamt+' Fragen offen'
+    : 'alle '+gesamt+' Fragen erledigt';
+
+  box.innerHTML =
+    (offenGesamt===0 ? `<div class="banner" style="margin-bottom:20px"><b>Pensum für heute erledigt.</b>
+        Alle ${gesamt} Fragen aus ${esc(posten[0].block)} sind bearbeitet.</div>`:'')
+    + `<div class="grid g4">${posten.map((p,i)=>{
+        const auf=p.qs.filter(q=>l[q.id]).length, n=p.qs.length;
+        const ok=p.qs.filter(q=>l[q.id]&&l[q.id].ok).length;
+        const fertig = auf===n;
+        return `<div class="card pad tagpost k-${p.kls}${fertig?' fertig':''}">
+          <div class="tagkopf">
+            <span class="tag">${esc(p.marke)}</span>
+            ${fertig?'<span class="haken" title="erledigt">✓</span>':''}
+          </div>
+          <h3 style="margin:12px 0 6px;font-size:17px">${esc(p.name)}</h3>
+          <div class="xs mute">${esc(p.block)} · ${n} Fragen</div>
+          <div class="meter" style="margin:16px 0 10px"><i style="width:${Math.round(auf/n*100)}%"></i></div>
+          <div class="xs mute" style="margin-bottom:18px">${fertig
+            ? '<b style="color:var(--ok)">erledigt</b> · '+ok+' von '+n+' richtig'
+            : '<b style="color:var(--ink)">'+auf+'</b> von '+n+' bearbeitet'}</div>
+          <button class="btn ${fertig?'ghost':''} blk" data-tag="${i}">${fertig?'Wiederholen':'Starten'}</button>
+        </div>`;
+      }).join('')}</div>`;
+
+  $$('#tagesaufgaben [data-tag]').forEach(b=>b.onclick=()=>start(posten[+b.dataset.tag].cfg));
 }
 
 function frcard(){
@@ -663,8 +692,11 @@ function frcard(){
           : `<div class="small mute" style="margin-top:8px">Hochgerechnet auf den vollen Test: rund ${hoch} von ${FR_META.punkte} Punkten</div>`}`
         : '<div class="small mute">Noch kein Sprachtest absolviert. Der vollständige Testlauf dauert 30 Minuten.</div>'}
     </div>
-    <button class="btn ghost" id="zu-fr">Zum Sprachtest</button></div>`;
-  $('#zu-fr').onclick=()=>go('fr');
+    <button class="btn ghost" id="zu-fr">Zum Trainer</button></div>`;
+  $('#zu-fr').onclick=()=>{
+    TR.bereiche=new Set(['textverstaendnis','wortschatz','grammatik']);
+    go('train');
+  };
 }
 
 function chart(){
@@ -746,6 +778,9 @@ function sessionsListe(){
 /* =====================================================================
    TRAINING – Menüs
    ===================================================================== */
+const frTage = ()=> [...new Set(FR.map(q=>q.block).filter(b=>b.startsWith('Tag ')))]
+  .sort((a,b)=>parseInt(b.slice(4))-parseInt(a.slice(4)));
+const frTeilFragen = t => FR.filter(q=>q.teil===t);
 const neuesteTage = ()=> [...new Set(F.map(q=>q.block).filter(b=>b.startsWith('Tag ')))]
   .sort((a,b)=>parseInt(b.slice(4))-parseInt(a.slice(4)));
 
@@ -757,52 +792,172 @@ function karte(o){
     <span class="go">→</span></button>`;
 }
 
+/* =====================================================================
+   TRAINER – frei zusammenstellbares Training
+   ===================================================================== */
+const BEREICHE = [
+  {id:'recht',            gruppe:'fach', kls:'recht',        name:'Völker-, Europa- und Staatsrecht', kurz:'Recht'},
+  {id:'geschichte',       gruppe:'fach', kls:'geschichte',   name:'Geschichte und Politik',            kurz:'Geschichte'},
+  {id:'wirtschaft',       gruppe:'fach', kls:'wirtschaft',   name:'Wirtschaft',                        kurz:'Wirtschaft'},
+  {id:'textverstaendnis', gruppe:'fr',   kls:'franzoesisch', name:'Textverständnis',                   kurz:'Textverständnis'},
+  {id:'wortschatz',       gruppe:'fr',   kls:'franzoesisch', name:'Wortschatz und Idiomatik',          kurz:'Wortschatz'},
+  {id:'grammatik',        gruppe:'fr',   kls:'franzoesisch', name:'Grammatik und Zeitformen',          kurz:'Grammatik'}
+];
+const AUSWAHL = [
+  {id:'alle',   name:'Alles gemischt',   erl:'Zufällig aus dem gesamten Bestand der gewählten Bereiche.'},
+  {id:'neu',    name:'Nur neue Fragen',  erl:'Nur was du noch nie beantwortet hast.'},
+  {id:'fehler', name:'Fehler wiederholen', erl:'Nur Fragen, die du zuletzt falsch hattest – der wirksamste Teil.'},
+  {id:'schwach',name:'Schwächste Themen', erl:'Bevorzugt Themenfelder mit der niedrigsten Trefferquote.'}
+];
+let TR = {bereiche:new Set(['recht','geschichte','wirtschaft']), auswahl:'alle', anzahl:25, zeit:false};
+
+function trBereichFragen(id){
+  const b = BEREICHE.find(x=>x.id===id);
+  return b.gruppe==='fach' ? F.filter(q=>q.kategorie===id) : FR.filter(q=>q.teil===id);
+}
+function trPool(){
+  const l=letzteJeFrage();
+  let pool=[...TR.bereiche].flatMap(trBereichFragen);
+  if(TR.auswahl==='neu')    pool=pool.filter(q=>!l[q.id]);
+  if(TR.auswahl==='fehler') pool=pool.filter(q=>l[q.id] && !l[q.id].ok);
+  if(TR.auswahl==='schwach'){
+    const feld={};
+    for(const a of S.antworten){ const q=BY_ID[a.id]; if(!q) continue;
+      const s=q.kategorie+'|'+themenfeld(q); (feld[s]=feld[s]||{n:0,ok:0}); feld[s].n++; if(a.ok) feld[s].ok++; }
+    const schwach=new Set(Object.entries(feld).filter(([,v])=>v.ok/v.n < 0.7).map(([s])=>s));
+    const eng=pool.filter(q=>schwach.has(q.kategorie+'|'+themenfeld(q)));
+    if(eng.length) pool=eng;
+  }
+  return pool;
+}
+/* Prüfungszeit: 25 Fachfragen in 10 Minuten, Französisch nach Teilbudget. */
+function trZeit(n){
+  const nurFr = [...TR.bereiche].every(id=>BEREICHE.find(b=>b.id===id).gruppe==='fr');
+  return Math.max(60, Math.round(n * (nurFr ? 1800/52 : 24)));
+}
+
+function renderTrainer(){
+  const box=$('#trainer'); if(!box) return;
+  const l=letzteJeFrage();
+  const pool=trPool();
+  const max=pool.length;
+  if(TR.anzahl>max) TR.anzahl=max;
+  if(TR.anzahl<1 && max) TR.anzahl=Math.min(25,max);
+  const stufen=[10,25,50,75,100].filter(n=>n<=max);
+  const nurFr = [...TR.bereiche].every(id=>BEREICHE.find(b=>b.id===id).gruppe==='fr');
+
+  box.innerHTML = `
+    <div class="tr-block">
+      <div class="tr-lab">Bereiche <span>${TR.bereiche.size} von ${BEREICHE.length} gewählt</span></div>
+      <div class="chips">
+        ${['fach','fr'].map(g=>`<div class="chipgruppe">
+          <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
+          ${BEREICHE.filter(b=>b.gruppe===g).map(b=>{
+            const qs=trBereichFragen(b.id);
+            const off=qs.filter(q=>!l[q.id]).length;
+            return `<button class="chip k-${b.kls}${TR.bereiche.has(b.id)?' an':''}" data-bereich="${b.id}">
+              <i></i>${esc(b.kurz)}<em>${qs.length}${off?' · '+off+' offen':''}</em></button>`;
+          }).join('')}
+          <button class="chip alle" data-gruppe="${g}">${
+            BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="tr-block">
+      <div class="tr-lab">Auswahl</div>
+      <div class="optionen">
+        ${AUSWAHL.map(a=>{
+          const merk = TR.auswahl===a.id;
+          return `<button class="tr-opt${merk?' an':''}" data-auswahl="${a.id}">
+            <b>${esc(a.name)}</b><span>${esc(a.erl)}</span></button>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="tr-block">
+      <div class="tr-lab">Umfang <span>${max} Fragen verfügbar</span></div>
+      ${max ? `<div class="umfang">
+          <input type="range" id="tr-schieber" min="1" max="${max}" value="${TR.anzahl}" step="1">
+          <output class="tr-zahl tnum" id="tr-zahl">${TR.anzahl}</output>
+        </div>
+        <div class="stufen">${stufen.map(n=>`<button class="stufe-btn${TR.anzahl===n?' an':''}" data-anzahl="${n}">${n}</button>`).join('')}
+          <button class="stufe-btn${TR.anzahl===max?' an':''}" data-anzahl="${max}">alle ${max}</button></div>`
+        : '<div class="hinweis">Für diese Auswahl gibt es gerade keine Fragen. Wähle mehr Bereiche oder eine andere Auswahl.</div>'}
+    </div>
+
+    <div class="tr-block">
+      <div class="tr-lab">Zeit</div>
+      <div class="optionen zwei">
+        <button class="tr-opt${TR.zeit?'':' an'}" data-zeit="0"><b>Ohne Zeitdruck</b>
+          <span>In Ruhe nachdenken, keine Uhr. Für das Tagespensum und zum Lernen.</span></button>
+        <button class="tr-opt${TR.zeit?' an':''}" data-zeit="1"><b>Mit Prüfungszeit</b>
+          <span>${nurFr?'Anteilig am Budget von 30 Minuten für 52 Aufgaben.':'Rund 24 Sekunden je Frage, wie im Original.'}
+            ${max?'Für '+TR.anzahl+' Fragen: '+mmss(trZeit(TR.anzahl))+' Min.':''}</span></button>
+      </div>
+    </div>
+
+    <div class="tr-start">
+      <div class="tr-zusammen">${max
+        ? `<b>${TR.anzahl} ${TR.anzahl===1?'Frage':'Fragen'}</b> aus ${TR.bereiche.size} ${TR.bereiche.size===1?'Bereich':'Bereichen'}
+           · ${esc(AUSWAHL.find(a=>a.id===TR.auswahl).name.toLowerCase())}
+           · ${TR.zeit? mmss(trZeit(TR.anzahl))+' Minuten' : 'ohne Zeitdruck'}`
+        : 'Keine Fragen für diese Zusammenstellung'}</div>
+      <button class="btn" id="tr-los" ${max?'':'disabled'}>Training starten</button>
+    </div>`;
+
+  $('#tr-note').textContent = max? max+' Fragen passen zur Auswahl' : 'keine passenden Fragen';
+
+  $$('#trainer [data-bereich]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.bereich;
+    if(TR.bereiche.has(id)){ if(TR.bereiche.size>1) TR.bereiche.delete(id); }
+    else TR.bereiche.add(id);
+    renderTrainer();
+  });
+  $$('#trainer [data-gruppe]').forEach(b=>b.onclick=()=>{
+    const g=b.dataset.gruppe, ids=BEREICHE.filter(x=>x.gruppe===g).map(x=>x.id);
+    if(ids.every(i=>TR.bereiche.has(i))){ ids.forEach(i=>TR.bereiche.delete(i)); if(!TR.bereiche.size) TR.bereiche.add('recht'); }
+    else ids.forEach(i=>TR.bereiche.add(i));
+    renderTrainer();
+  });
+  $$('#trainer [data-auswahl]').forEach(b=>b.onclick=()=>{ TR.auswahl=b.dataset.auswahl; renderTrainer(); });
+  $$('#trainer [data-anzahl]').forEach(b=>b.onclick=()=>{ TR.anzahl=+b.dataset.anzahl; renderTrainer(); });
+  $$('#trainer [data-zeit]').forEach(b=>b.onclick=()=>{ TR.zeit=b.dataset.zeit==='1'; renderTrainer(); });
+  const sch=$('#tr-schieber');
+  if(sch){
+    sch.oninput=()=>{ TR.anzahl=+sch.value; $('#tr-zahl').textContent=TR.anzahl; };
+    sch.onchange=()=>renderTrainer();
+  }
+  const los=$('#tr-los');
+  if(los) los.onclick=()=>start({typ:'trainer', zeit:TR.zeit? trZeit(TR.anzahl):0,
+    titel:'Training · '+AUSWAHL.find(a=>a.id===TR.auswahl).name});
+}
+
 function renderMenu(){
   $('#train-menu').style.display=''; $('#train-run').style.display='none'; $('#train-run').innerHTML='';
-  const neu=neuesteTage()[0], l=letzteJeFrage();
-  const heutePool = neu? F.filter(q=>q.block===neu) : [];
-  const offenHeute = heutePool.filter(q=>!l[q.id]).length;
-  $('#today-note').textContent = neu? (offenHeute? offenHeute+' von '+heutePool.length+' Fragen offen' : 'Tagespensum erledigt') : '';
-
-  $('#modes-today').innerHTML = neu
-    ? (offenHeute===0 ? `<div class="banner"><b>Tagespensum erledigt.</b> Alle Fragen aus ${esc(neu)} bearbeitet – eine gute Grundlage für eine Wiederholungsrunde.</div>` : '')
-      + ALLE.filter(k=>heutePool.some(q=>q.kategorie===k)).map(k=>{
-        const n=heutePool.filter(q=>q.kategorie===k).length;
-        const off=heutePool.filter(q=>q.kategorie===k && !l[q.id]).length;
-        return karte({kicker:neu, t:KAT[k].kurz, p:KAT[k].name+'. Neuer Abschnitt im Originalformat.',
-          meta:[n+' Fragen', n===25?'10:00 Min':'ohne Zeitdruck', off?off+' offen':'erledigt'],
-          cfg:{typ:'block', block:neu, kat:k, zeit:n===25?600:0, titel:KAT[k].kurz+' · '+neu}});
-      }).join('')
-    : '<div class="card pad mute">Noch kein Tagesabschnitt vorhanden.</div>';
+  renderTrainer();
 
   $('#modes-exam').innerHTML = [
-    karte({kicker:'Ernstfall', t:'Vollsimulation', p:'Alle drei Fachtests hintereinander, je 25 Fragen in 10 Minuten – wie am 1. September.',
+    karte({kicker:'Ernstfall', t:'Vollsimulation Fachtests', p:'Alle drei Fachtests hintereinander, je 25 Fragen in 10 Minuten – wie am 1. September.',
       meta:['75 Fragen','3 × 10:00 Min'], cfg:{typ:'sim', zeit:600, titel:'Vollsimulation Fachtests'}}),
+    karte({kicker:'Ernstfall', t:'Vollständiger Sprachtest', p:'Alle drei Teile mit einem gemeinsamen Budget von 30 Minuten, 60 Punkte, bestanden ab 30.',
+      meta:['52 Aufgaben','30:00 Min'], cfg:{typ:'frSim', zeit:FR_META.dauer, gesamt:true, titel:'Vollständiger Sprachtest'}}),
     karte({kicker:'Original', t:'Auswahlverfahren 2023', p:'Die drei veröffentlichten Fachtests des Jahrgangs 2023 im Original.',
       meta:['75 Fragen','3 × 10:00 Min'], cfg:{typ:'orig', block:'Original 2023', zeit:600, titel:'Originalprüfung 2023'}}),
     karte({kicker:'Original', t:'Auswahlverfahren 2019', p:'Die drei veröffentlichten Fachtests des Jahrgangs 2019 im Original.',
-      meta:['75 Fragen','3 × 10:00 Min'], cfg:{typ:'orig', block:'Original 2019', zeit:600, titel:'Originalprüfung 2019'}})
+      meta:['75 Fragen','3 × 10:00 Min'], cfg:{typ:'orig', block:'Original 2019', zeit:600, titel:'Originalprüfung 2019'}}),
+    karte({kicker:'Original', t:'AA-Musteraufgaben Französisch', p:'Die vom Auswärtigen Amt veröffentlichten Beispielaufgaben zum Sprachtest.',
+      meta:[FR.filter(q=>q.block==='AA-Musteraufgaben').length+' Aufgaben','ohne Zeitdruck'],
+      cfg:{typ:'frBlockAlle', block:'AA-Musteraufgaben', zeit:0, titel:'AA-Musteraufgaben Französisch'}})
   ].join('');
-
-  const fal=falscheOffen(), nieGesehen=F.filter(q=>!l[q.id]).length;
-  $('#modes-drill').innerHTML = [
-    karte({kicker:'Empfohlen', t:'Wiederholung', p:'Fragen, die du zuletzt falsch hattest – der wirksamste Teil des Trainings.',
-      meta:[fal.length+' Fragen', fal.length?'ohne Zeitdruck':'nichts offen'], cfg:{typ:'fehler', zeit:0, titel:'Wiederholung'}}),
-    ...ALLE.map(k=>{ const s=statsKat(k);
-      return karte({kicker:'Zufallssatz', t:KAT[k].kurz, p:'25 zufällige Fragen aus dem gesamten Bestand dieser Kategorie, mit Prüfungstimer.',
-        meta:[s.pool+' im Pool', s.offen+' offen','10:00 Min'], cfg:{typ:'zufall', kat:k, n:25, zeit:600, titel:KAT[k].kurz+' · Zufallssatz'}}); }),
-    karte({kicker:'Neuland', t:'Nur neue Fragen', p:'Alles, was du noch nie beantwortet hast, über die drei Fachtests gemischt.',
-      meta:[nieGesehen+' Fragen','ohne Zeitdruck'], cfg:{typ:'neu', n:25, zeit:0, titel:'Nur neue Fragen'}})
-  ].join('');
-
-  $$('#train-menu .mode').forEach(b=>b.onclick=()=>start(JSON.parse(b.dataset.mode)));
+  $$('#modes-exam .mode').forEach(b=>b.onclick=()=>start(JSON.parse(b.dataset.mode)));
   paketliste();
 }
 
 /* ---------- Übersicht über alle Abschnitte ----------
    Damit die Sammlung auch nach dreißig Tagen überschaubar bleibt: eine Zeile
    je Paket mit Fortschritt, standardmäßig die letzten acht. */
-let PAKETE_ALLE=false, FR_PAKETE_ALLE=false;
+let PAKETE_ALLE=false;
 
 function paketZeile(name, teile, l, sofort){
   const ges = teile.reduce((a,t)=>a+t.n, 0);
@@ -822,7 +977,7 @@ function paketZeile(name, teile, l, sofort){
 function paketliste(){
   const box=$('#pakete'); if(!box) return;
   const l=letzteJeFrage();
-  const namen=[...new Set(F.map(q=>q.block))]
+  const namen=[...new Set(ALLES.map(q=>q.block))]
     .sort((a,b)=>{
       const ta=a.startsWith('Tag ')?parseInt(a.slice(4)):-1, tb=b.startsWith('Tag ')?parseInt(b.slice(4)):-1;
       if(ta>=0&&tb>=0) return tb-ta;
@@ -836,7 +991,11 @@ function paketliste(){
       return {kls:k, name:KAT[k].kurz, n:qs.length,
               gemacht:qs.filter(q=>l[q.id]).length,
               richtig:qs.filter(q=>l[q.id]&&l[q.id].ok).length};
-    }).filter(t=>t.n);
+    }).concat([(()=>{ const qs=FR.filter(q=>q.block===n);
+      return {kls:'franzoesisch', name:KAT_FR.kurz, n:qs.length,
+              gemacht:qs.filter(q=>l[q.id]).length,
+              richtig:qs.filter(q=>l[q.id]&&l[q.id].ok).length}; })()])
+      .filter(t=>t.n);
     return {n, teile, offen: teile.reduce((a,t)=>a+(t.n-t.gemacht),0)};
   });
   const offen = zeilen.filter(z=>z.offen).length;
@@ -851,89 +1010,10 @@ function paketliste(){
   const m=$('#pakete-mehr'); if(m) m.onclick=()=>{ PAKETE_ALLE=!PAKETE_ALLE; paketliste(); };
   $$('#pakete [data-paket]').forEach(b=>b.onclick=()=>{
     const n=b.dataset.paket;
-    start({typ:'orig', block:n, zeit:600, titel:n});
+    /* Originalprüfungen mit Prüfungszeit, Tagespakete ohne. */
+    const orig = n.startsWith('Original');
+    start({typ:'paket', block:n, zeit: orig?600:0, titel:n});
   });
-}
-
-function frPaketliste(){
-  const box=$('#fr-pakete'); if(!box) return;
-  const l=letzteJeFrage();
-  const namen=[...new Set(FR.map(q=>q.block))]
-    .sort((a,b)=>{
-      const ta=a.startsWith('Tag ')?parseInt(a.slice(4)):-1, tb=b.startsWith('Tag ')?parseInt(b.slice(4)):-1;
-      if(ta>=0&&tb>=0) return tb-ta;
-      if(ta>=0) return -1; if(tb>=0) return 1;
-      return b.localeCompare(a,'de');
-    });
-  const zeilen = namen.map(n=>{
-    const teile = Object.keys(FR_TEIL).map(t=>{
-      const qs=FR.filter(q=>q.block===n && q.teil===t);
-      return {kls:'franzoesisch', name:FR_TEIL[t].kurz, n:qs.length,
-              gemacht:qs.filter(q=>l[q.id]).length,
-              richtig:qs.filter(q=>l[q.id]&&l[q.id].ok).length};
-    }).filter(t=>t.n);
-    return {n, teile, offen: teile.reduce((a,t)=>a+(t.n-t.gemacht),0)};
-  });
-  const offen = zeilen.filter(z=>z.offen).length;
-  $('#fr-pakete-note').textContent = zeilen.length + (zeilen.length===1?' Paket':' Pakete')
-    + (offen? ' · '+offen+' noch offen' : ' · alle bearbeitet');
-  const zeige = FR_PAKETE_ALLE ? zeilen : zeilen.slice(0,8);
-  box.innerHTML = zeilen.length
-    ? zeige.map(z=>paketZeile(z.n, z.teile, l, false)).join('')
-      + (zeilen.length>8 ? `<div class="morerow"><button class="link" id="fr-pakete-mehr">${
-          FR_PAKETE_ALLE?'Nur die letzten acht zeigen':'Alle '+zeilen.length+' Pakete zeigen'}</button></div>`:'')
-    : '<div class="empty">Noch kein Abschnitt vorhanden.</div>';
-  const m=$('#fr-pakete-mehr'); if(m) m.onclick=()=>{ FR_PAKETE_ALLE=!FR_PAKETE_ALLE; frPaketliste(); };
-  $$('#fr-pakete [data-paket]').forEach(b=>b.onclick=()=>{
-    start({view:'fr', typ:'frBlockAlle', block:b.dataset.paket, zeit:0, titel:b.dataset.paket+' · Französisch'});
-  });
-}
-
-const frTage = ()=> [...new Set(FR.map(q=>q.block).filter(b=>b.startsWith('Tag ')))]
-  .sort((a,b)=>parseInt(b.slice(4))-parseInt(a.slice(4)));
-const frTeilFragen = t => FR.filter(q=>q.teil===t);
-
-function renderFrMenu(){
-  $('#fr-menu').style.display=''; $('#fr-run').style.display='none'; $('#fr-run').innerHTML='';
-  const l=letzteJeFrage();
-
-  $('#fr-spec').innerHTML = Object.entries(FR_TEIL).map(([k,t])=>
-    `<div><div class="t">${esc(t.kurz)}</div><div class="v">${t.fragen} <span style="font-size:15px;font-weight:400;color:var(--muted-2)">Fragen</span></div>
-     <div class="s">${t.punkte} ${t.punkte===1?'Punkt':'Punkte'} je Frage · ${t.fragen*t.punkte} Punkte · ca. ${Math.round(t.zeit/60)} Min</div></div>`).join('');
-
-  const neu=frTage()[0];
-  const tagesPool=neu? FR.filter(q=>q.block===neu):[];
-  const offen=tagesPool.filter(q=>!l[q.id]).length;
-  $('#fr-today-note').textContent = neu? (offen? offen+' von '+tagesPool.length+' Fragen offen':'Tagespensum erledigt') : '';
-  $('#fr-today').innerHTML = neu
-    ? (offen===0? `<div class="banner"><b>Tagespensum erledigt.</b> Alle Fragen aus ${esc(neu)} bearbeitet.</div>`:'')
-      + Object.keys(FR_TEIL).filter(t=>tagesPool.some(q=>q.teil===t)).map(t=>{
-          const n=tagesPool.filter(q=>q.teil===t).length, off=tagesPool.filter(q=>q.teil===t&&!l[q.id]).length;
-          return karte({kicker:neu, t:FR_TEIL[t].kurz, p:FR_TEIL[t].name+'. Neuer Abschnitt im Originalformat.',
-            meta:[n+' Fragen', off?off+' offen':'erledigt'],
-            cfg:{view:'fr', typ:'frBlock', block:neu, teil:t, zeit:0, titel:FR_TEIL[t].kurz+' · '+neu}});
-        }).join('')
-    : '<div class="card pad mute">Noch kein Tagesabschnitt vorhanden.</div>';
-
-  $('#fr-exam').innerHTML=[
-    karte({kicker:'Ernstfall', t:'Vollständiger Sprachtest', p:'Alle drei Teile hintereinander mit einem gemeinsamen Zeitbudget von 30 Minuten – wie am 1. September.',
-      meta:['52 Fragen','30:00 Min','60 Punkte'], cfg:{view:'fr', typ:'frSim', zeit:FR_META.dauer, gesamt:true, titel:'Vollständiger Sprachtest'}}),
-    karte({kicker:'Original', t:'AA-Musteraufgaben', p:'Die vom Auswärtigen Amt veröffentlichten Beispielaufgaben zum Sprachtest Französisch.',
-      meta:[FR.filter(q=>q.block==='AA-Musteraufgaben').length+' Fragen','ohne Zeitdruck'],
-      cfg:{view:'fr', typ:'frBlockAlle', block:'AA-Musteraufgaben', zeit:0, titel:'AA-Musteraufgaben'}}),
-    karte({kicker:'Empfohlen', t:'Wiederholung', p:'Französischfragen, die du zuletzt falsch beantwortet hast.',
-      meta:[falscheOffen(FR).length+' Fragen','ohne Zeitdruck'], cfg:{view:'fr', typ:'frFehler', zeit:0, titel:'Wiederholung Französisch'}})
-  ].join('');
-
-  $('#fr-drill').innerHTML = Object.entries(FR_TEIL).map(([k,t])=>{
-    const pool=frTeilFragen(k), off=pool.filter(q=>!l[q.id]).length;
-    return karte({kicker:'Einzelteil', t:t.kurz, p:t.name+'. Zufallssatz im Prüfungsumfang, mit der empfohlenen Zeit.',
-      meta:[pool.length+' im Pool', off+' offen', mmss(t.zeit)+' Min'],
-      cfg:{view:'fr', typ:'frTeil', teil:k, zeit:t.zeit, titel:t.kurz}});
-  }).join('');
-
-  $$('#fr-menu .mode').forEach(b=>b.onclick=()=>start(JSON.parse(b.dataset.mode)));
-  frPaketliste();
 }
 
 /* =====================================================================
@@ -968,6 +1048,9 @@ function baueTeile(cfg){
   switch(cfg.typ){
     case 'block':   return [{fragen:F.filter(q=>q.block===cfg.block && q.kategorie===cfg.kat)}];
     case 'orig':    return ALLE.map(k=>({fragen:F.filter(q=>q.block===cfg.block && q.kategorie===k)}));
+    case 'paket':   return ALLE.map(k=>({fragen:F.filter(q=>q.block===cfg.block && q.kategorie===k)}))
+                      .concat(Object.keys(FR_TEIL).map(t=>({fragen:FR.filter(q=>q.block===cfg.block && q.teil===t)})))
+                      .filter(x=>x.fragen.length);
     case 'sim':     return ALLE.map(k=>({fragen:pick(F.filter(q=>q.kategorie===k),25)}));
     case 'zufall':  return [{fragen:pick(F.filter(q=>q.kategorie===cfg.kat), cfg.n)}];
     case 'fehler':  return [{fragen:shuffle(falscheOffen(F))}];
@@ -981,6 +1064,23 @@ function baueTeile(cfg){
                               ? frTextsatz(frTeilFragen(t), FR_TEIL[t].fragen)
                               : pick(frTeilFragen(t), FR_TEIL[t].fragen)}));
     case 'frFehler':return [{fragen:shuffle(falscheOffen(FR))}];
+    case 'trainer': {
+      /* Textverständnis artikelweise ziehen, damit die Lesetexte vollständig bleiben. */
+      const pool=trPool();
+      const tv=pool.filter(q=>q.teil==='textverstaendnis');
+      const rest=pool.filter(q=>q.teil!=='textverstaendnis');
+      let satz;
+      if(tv.length && TR.bereiche.has('textverstaendnis')){
+        const anteil=Math.min(tv.length, Math.max(1, Math.round(TR.anzahl*tv.length/pool.length)));
+        satz = frTextsatz(tv, anteil, 3).concat(pick(rest, TR.anzahl-anteil));
+      } else {
+        satz = pick(pool, TR.anzahl);
+      }
+      /* Nach Bereich sortieren, damit zusammengehörige Fragen beieinander stehen. */
+      const rang = q => BEREICHE.findIndex(b=>b.id===(q.kategorie==='franzoesisch'? q.teil : q.kategorie));
+      satz.sort((a,b)=> rang(a)-rang(b) || String(a.textId||'').localeCompare(String(b.textId||'')));
+      return [{fragen:satz}];
+    }
   }
   return [];
 }
@@ -988,14 +1088,13 @@ function baueTeile(cfg){
 function start(cfg){
   const teile=baueTeile(cfg).filter(t=>t.fragen.length);
   if(!teile.length){ toast('Für diesen Durchgang sind gerade keine Fragen vorhanden.'); return; }
-  const view=cfg.view||'train';
-  const anderer = view==='fr' ? '#train-run' : '#fr-run';
-  $(anderer).innerHTML=''; $(anderer).style.display='none';
-  $(view==='fr' ? '#train-menu' : '#fr-menu').style.display='';
-  LAUF={cfg, view, mount:view==='fr'?'#fr-run':'#train-run', teile, ti:0, i:0, antw:{}, mark:{}, start:Date.now(), phase:'lauf'};
-  $(view==='fr'?'#fr-menu':'#train-menu').style.display='none';
-  $(LAUF.mount).style.display='';
-  go(view); renderFrage(); starteTimer();
+  LAUF={cfg, view:'train', mount:'#train-run', teile, ti:0, i:0, antw:{}, mark:{}, start:Date.now(), phase:'lauf'};
+  $('#train-menu').style.display='none';
+  $('#train-run').style.display='';
+  ANSICHT='train'; navBauen();
+  $$('.view').forEach(s=>s.classList.toggle('on', s.id==='v-train'));
+  window.scrollTo({top:0});
+  renderFrage(); starteTimer();
 }
 const aktTeil = ()=> LAUF.teile[LAUF.ti];
 
@@ -1097,7 +1196,7 @@ function renderFrage(){
     teilFertig();
   };
   M('#abbruch').onclick=()=>{ if(confirm('Durchgang abbrechen? Die Antworten werden nicht gespeichert.')){
-    clearInterval(TICK); const v=LAUF.view; LAUF=null; v==='fr'?renderFrMenu():renderMenu(); } };
+    clearInterval(TICK); LAUF=null; renderMenu(); } };
 }
 
 function teilFertig(){
@@ -1136,10 +1235,11 @@ function ring(p, farbe){
 }
 
 function renderErgebnis(alle, sess){
+  const nurFr = sess.kats.length===1 && sess.kats[0]==='franzoesisch';
   const fr = sess.kats.includes('franzoesisch');
   const farbe = sess.quote>=70?'#1c6f45':sess.quote>=50?'#8a6d0b':'#b3121b';
   const vollerTest = fr && LAUF.cfg.typ==='frSim' && sess.maxPunkte===FR_META.punkte;
-  const gruppen = fr
+  const gruppen = nurFr
     ? Object.keys(FR_TEIL).filter(t=>alle.some(q=>q.teil===t)).map(t=>{
         const qs=alle.filter(q=>q.teil===t);
         return {kls:'k-franzoesisch', name:FR_TEIL[t].kurz,
@@ -1148,7 +1248,9 @@ function renderErgebnis(alle, sess){
                 mp:qs.reduce((a,q)=>a+q.punkte,0)}; })
     : [...new Set(alle.map(q=>q.kategorie))].map(k=>{
         const qs=alle.filter(q=>q.kategorie===k);
-        return {kls:'k-'+k, name:KAT[k].kurz, r:qs.filter(q=>LAUF.antw[q.id]===q.loesung).length, n:qs.length}; });
+        return {kls:'k-'+k, name:katKurz(k), r:qs.filter(q=>LAUF.antw[q.id]===q.loesung).length, n:qs.length,
+                p:qs.filter(q=>LAUF.antw[q.id]===q.loesung).reduce((a,q)=>a+(q.punkte||1),0),
+                mp:qs.reduce((a,q)=>a+(q.punkte||1),0)}; });
 
   const rows=alle.map((q,i)=>{
     const g=LAUF.antw[q.id], ok=g===q.loesung, offen=g===undefined;
@@ -1196,9 +1298,8 @@ function renderErgebnis(alle, sess){
         <div id="revlist">${rows}</div>
       </div>
     </div>`;
-  const v=LAUF.view;
-  M('#e-menu').onclick=()=>{ LAUF=null; v==='fr'?renderFrMenu():renderMenu(); };
-  M('#e-dash').onclick=()=>{ LAUF=null; v==='fr'?renderFrMenu():renderMenu(); go('dash'); };
+  M('#e-menu').onclick=()=>{ LAUF=null; renderMenu(); };
+  M('#e-dash').onclick=()=>{ LAUF=null; renderMenu(); go('dash'); };
   M('#e-all').onclick=()=>MM('#revlist details').forEach(d=>d.open=true);
   window.scrollTo({top:0});
 }
@@ -1230,7 +1331,68 @@ function renderArchiv(){
 /* =====================================================================
    FRAGENPOOL
    ===================================================================== */
+/* ---------- Abdeckung des Lehrplans ---------- */
+const LP_NAME = {recht:'Völker-, Europa- und Staatsrecht', geschichte:'Geschichte und Politik',
+  wirtschaft:'Wirtschaft', textverstaendnis:'Textverständnis', wortschatz:'Wortschatz', grammatik:'Grammatik'};
+const LP_KLS = {recht:'recht', geschichte:'geschichte', wirtschaft:'wirtschaft',
+  textverstaendnis:'franzoesisch', wortschatz:'franzoesisch', grammatik:'franzoesisch'};
+let LP_OFFEN = null;
+
+async function renderLehrplan(){
+  const box=$('#lehrplan'); if(!box) return;
+  const [{data:ueb}, {data:stand}] = await Promise.all([
+    sb.from('lehrplan_uebersicht').select('*'),
+    sb.from('lehrplan_stand').select('kategorie,thema,gewicht,fragen,soll,zuletzt').order('kategorie')
+  ]);
+  if(!ueb){ box.innerHTML='<div class="card"><div class="empty">Lehrplan konnte nicht geladen werden.</div></div>'; return; }
+  const reihe=['recht','geschichte','wirtschaft','textverstaendnis','wortschatz','grammatik'];
+  const sortiert=reihe.map(k=>ueb.find(u=>u.kategorie===k)).filter(Boolean);
+  const felder=sortiert.reduce((a,u)=>a+u.felder,0);
+  const begonnen=sortiert.reduce((a,u)=>a+u.begonnen,0);
+  $('#lp-note').textContent = begonnen+' von '+felder+' Themenfeldern begonnen';
+
+  box.innerHTML = `<div class="grid g3">${sortiert.map(u=>{
+      const p=Math.round(u.begonnen/u.felder*100);
+      return `<div class="card pad k-${LP_KLS[u.kategorie]}">
+        <div class="tag">${esc(LP_NAME[u.kategorie])}</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin:14px 0 12px">
+          <span style="font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink)" class="tnum">${u.begonnen}</span>
+          <span class="mute" style="font-size:16px">von ${u.felder} Feldern</span>
+        </div>
+        <div class="meter"><i style="width:${p}%"></i></div>
+        <div class="xs mute" style="margin-top:14px">${u.fragen} Fragen · Ziel ${u.soll}${
+          u.erfuellt? ' · '+u.erfuellt+' Felder vollständig':''}</div>
+      </div>`;
+    }).join('')}</div>
+    <div class="card" style="margin-top:20px">
+      <div class="feld" style="border-bottom:1px solid var(--line)">
+        <span class="nm" style="font-weight:600;color:var(--ink)">Noch nicht begonnene Themenfelder</span>
+        <span class="ct" style="width:auto">${(stand||[]).filter(s=>!s.fragen).length}</span>
+      </div>
+      <div id="lp-liste"></div>
+      <div class="morerow"><button class="link" id="lp-mehr"></button></div>
+    </div>`;
+
+  const offen=(stand||[]).filter(s=>!s.fragen);
+  const zeichnen=()=>{
+    const zeige = LP_OFFEN ? offen : offen.slice(0,10);
+    $('#lp-liste').innerHTML = offen.length
+      ? zeige.map(s=>`<div class="feld k-${LP_KLS[s.kategorie]}">
+          <span class="sq"></span>
+          <span class="nm" title="${esc(s.thema)}">${esc(s.thema)}</span>
+          <span class="ct" style="width:auto;white-space:nowrap">${s.gewicht===3?'häufig':s.gewicht===2?'normal':'selten'}</span>
+        </div>`).join('')
+      : '<div class="empty">Jedes Themenfeld hat mindestens eine Frage.</div>';
+    const b=$('#lp-mehr');
+    if(offen.length>10){ b.style.display=''; b.textContent = LP_OFFEN? 'Weniger anzeigen' : 'Alle '+offen.length+' offenen Felder anzeigen'; }
+    else b.style.display='none';
+  };
+  zeichnen();
+  $('#lp-mehr').onclick=()=>{ LP_OFFEN=!LP_OFFEN; zeichnen(); };
+}
+
 function renderPool(){
+  renderLehrplan();
   const ks=$('#q-kat'), bs=$('#q-block');
   if(!ks.options.length){
     ks.innerHTML='<option value="">alle</option>'+ALLE.concat('franzoesisch').map(k=>`<option value="${k}">${katKurz(k)}</option>`).join('');
@@ -1824,7 +1986,7 @@ async function starten(){
   sb.rpc('aktiv_melden').then(()=>{}, ()=>{});
 
   $('#laden').classList.add('weg');
-  renderMenu(); renderFrMenu();
+  renderMenu();
   if(WIEDERHERSTELLUNG){
     history.replaceState(null, '', location.pathname);
     go('konto');
