@@ -478,17 +478,16 @@ function schaleBauen(){
       <div class="eyebrow">Verwaltung</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Quellen</h1>
-        <p class="lead">Grundlage für die täglich neu erzeugten Fragen. Nach Sachgebieten sortiert, mit Datei im Cloudspeicher.</p>
+        <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst.</p>
       </div></div>
     </div>
     <div class="wrap">
       <div class="card pad" style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:26px">
         <label class="fld" style="flex:1;min-width:220px">Suche<input type="search" id="qu-suche" placeholder="Titel oder Dateiname"></label>
-        <label class="fld" style="flex:1;min-width:170px">Sachgebiet<select id="qu-kat"></select></label>
-        <label class="fld" style="flex:1;min-width:150px">Einstufung<select id="qu-stufe">
-          <option value="">alle</option><option value="amtlich">Amtlich</option>
-          <option value="behoerde">Öffentlich</option><option value="wissenschaft">Wissenschaft</option>
-          <option value="kommerziell">Kommerziell</option><option value="sonstige">Ungeprüft</option></select></label>
+        <label class="fld" style="flex:1;min-width:170px">Prüfungsteil<select id="qu-kat"></select></label>
+        <label class="fld" style="flex:1;min-width:160px">Prüfungsbezug<select id="qu-stufe">
+          <option value="">alle</option><option value="kern">Kernquellen</option>
+          <option value="ergaenzend">Ergänzungen</option><option value="abseits">ohne Bezug</option></select></label>
         <label class="fld" style="flex:1;min-width:130px">Datei<select id="qu-datei">
           <option value="">alle</option><option value="ja">hochgeladen</option><option value="nein">fehlt</option></select></label>
         <button class="btn sm" id="qu-neu">Quelle hinzufügen</button>
@@ -1199,9 +1198,16 @@ async function renderQuellen(){
 
 let QU_OFFEN = new Set();          // aufgeklappte Sachgebiete merken
 
+const BEZUG = {
+  kern:       {kurz:'Kernquelle', lang:'Deckt Prüfungsstoff unmittelbar ab'},
+  ergaenzend: {kurz:'Ergänzung',  lang:'Nützlich, aber am Rand des Prüfungsstoffs'},
+  abseits:    {kurz:'ohne Prüfungsbezug', lang:'Deckt keinen Prüfungsstoff ab – kann entfernt werden'}
+};
+
 function quellenZeile(q){
   const st = STUFE[q.einstufung] || STUFE.sonstige;
-  return `<div class="quelle">
+  const bz = q.relevanz || 'ergaenzend';
+  return `<div class="quelle${bz==='abseits'?' abseits':''}">
     <span class="punkt ${q.vorhanden?'ja':'nein'}" title="${q.vorhanden?'Datei im Cloudspeicher':'Datei fehlt'}"></span>
     <span class="t">
       <b>${esc(q.titel)}</b>
@@ -1209,8 +1215,10 @@ function quellenZeile(q){
         <span class="stufe ${esc(q.einstufung||'sonstige')}" title="${esc(st.lang)}">${esc(st.kurz)}</span>
         <span class="geber">${esc(q.herausgeber||'Herkunft nicht vermerkt')}</span>
         ${q.herkunft?`<span class="fund">${esc(q.herkunft)}</span>`:''}
+        ${bz!=='kern'?`<span class="bezug ${bz}" title="${esc(BEZUG[bz].lang)}">${esc(BEZUG[bz].kurz)}</span>`:''}
       </span>
-      <span class="datei">${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${q.vorhanden?'':' · Datei fehlt'}</span>
+      <span class="datei">${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${q.vorhanden?'':' · Datei fehlt'}${
+        (bz==='abseits'&&q.bemerkung)?' · '+esc(q.bemerkung):''}</span>
     </span>
     <span class="akt">
       ${q.vorhanden
@@ -1227,32 +1235,44 @@ function quellenListe(){
   const e=$('#qu-stufe')? $('#qu-stufe').value : '';
   const gefiltert = !!(s||k||d||e);
   const r=QU_ALLE.filter(q=>(!k||q.kategorie===k)
-    && (!e||q.einstufung===e)
+    && (!e||(q.relevanz||'ergaenzend')===e)
     && (!d || (d==='ja'? q.vorhanden : !q.vorhanden))
     && (!s || (q.titel+' '+q.dateiname+' '+(q.herausgeber||'')+' '+(q.herkunft||'')).toLowerCase().includes(s)));
 
   const da=QU_ALLE.filter(q=>q.vorhanden).length;
   const gb=QU_ALLE.reduce((a,q)=>a+(q.groesse||0),0);
+  const ohne=QU_ALLE.filter(q=>q.relevanz==='abseits');
+  const ohneMb=ohne.reduce((a,q)=>a+(q.groesse||0),0);
   const zaehl = Object.entries(QU_ALLE.reduce((m,q)=>{ m[q.einstufung||'sonstige']=(m[q.einstufung||'sonstige']||0)+1; return m; },{}));
   $('#qu-stat').innerHTML =
-    `<b style="color:var(--ink)">${QU_ALLE.length} Quellen</b> in ${QU_KATS.length} Sachgebieten · ${da} im Cloudspeicher`
+    `<b style="color:var(--ink)">${QU_ALLE.length} Quellen</b> für ${QU_KATS.length} Prüfungsteile · `
+    + `${QU_ALLE.filter(q=>q.relevanz==='kern').length} Kernquellen`
+    + (ohne.length? `, ${ohne.length} ohne Prüfungsbezug`:'')
+    + ` · ${da} im Cloudspeicher`
     + (QU_ALLE.length-da? `, <b style="color:var(--gold)">${QU_ALLE.length-da} ohne Datei</b>`:'')
     + ` · zusammen ${mb(gb)}`
     + `<div class="herkunft" style="margin-top:12px">${zaehl
         .sort((a,b)=>b[1]-a[1])
         .map(([s2,n])=>`<span class="stufe ${esc(s2)}" title="${esc((STUFE[s2]||STUFE.sonstige).lang)}">${esc((STUFE[s2]||STUFE.sonstige).kurz)} ${n}</span>`).join('')}</div>`
+    + (ohne.length? `<div class="hinweis" style="margin:16px 0 0;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <span style="flex:1;min-width:240px"><b>${ohne.length} Quellen ohne Prüfungsbezug</b> – ältere Ausgaben, Schulmaterial
+        und Randthemen, zusammen ${mb(ohneMb)}. Sie verwässern die tägliche Fragenerstellung.</span>
+        <button class="btn ghost sm" id="qu-zeigeohne">Anzeigen</button>
+        <button class="btn ghost sm gefahr" id="qu-raus">Alle entfernen</button></div>`:'')
     + (gefiltert? `<div style="margin-top:12px">${r.length} Treffer · <button class="link" id="qu-frei" style="font-size:14px">Filter zurücksetzen</button></div>`:'');
 
   const gruppen = QU_KATS.map(kat=>({kat, items:r.filter(q=>q.kategorie===kat.schluessel)})).filter(g=>g.items.length);
   $('#qu-liste').innerHTML = gruppen.length ? gruppen.map(g=>{
       const fehlt = g.items.filter(q=>!q.vorhanden).length;
+      const kern  = g.items.filter(q=>q.relevanz==='kern').length;
+      const raus  = g.items.filter(q=>q.relevanz==='abseits').length;
       const auf = gefiltert || QU_OFFEN.has(g.kat.schluessel);
       return `<details class="gebiet" data-gebiet="${esc(g.kat.schluessel)}"${auf?' open':''}>
         <summary>
           <span class="pfeil">▶</span>
           <span class="name">${esc(g.kat.bezeichnung)}</span>
           ${fehlt?`<span class="fehlt">${fehlt} ohne Datei</span>`:''}
-          <span class="zahl">${g.items.length} ${g.items.length===1?'Quelle':'Quellen'}</span>
+          <span class="zahl">${kern} Kern${raus?' · '+raus+' ohne Bezug':''} · ${g.items.length} gesamt</span>
         </summary>
         <div>${g.items.map(quellenZeile).join('')}</div>
       </details>`;
@@ -1272,6 +1292,10 @@ function quellenListe(){
     $('#qu-suche').value=''; $('#qu-kat').value=''; $('#qu-datei').value='';
     if($('#qu-stufe')) $('#qu-stufe').value=''; quellenListe();
   };
+  const zeig=$('#qu-zeigeohne');
+  if(zeig) zeig.onclick=()=>{ $('#qu-stufe').value='abseits'; quellenListe(); $('#qu-liste').scrollIntoView({behavior:'smooth'}); };
+  const raus=$('#qu-raus');
+  if(raus) raus.onclick=()=>ohneBezugEntfernen();
   $$('#qu-liste [data-bearb]').forEach(b=>b.onclick=()=>quelleBearbeiten(QU_ALLE.find(q=>q.id===b.dataset.bearb)));
   $$('#qu-liste [data-weg]').forEach(b=>b.onclick=()=>quelleLoeschen(QU_ALLE.find(q=>q.id===b.dataset.weg)));
   $$('#qu-liste [data-hoch]').forEach(b=>b.onclick=()=>quelleHochladen(QU_ALLE.find(q=>q.id===b.dataset.hoch)));
@@ -1300,6 +1324,8 @@ function quelleBearbeiten(q){
       <label class="fld">Herausgeber<input id="d-geber" value="${esc(q&&q.herausgeber?q.herausgeber:'')}" placeholder="z. B. Bundeszentrale für politische Bildung"></label>
       <label class="fld">Einstufung<select id="d-stufe">${Object.entries(STUFE).map(([k,v])=>
         `<option value="${k}" ${q&&(q.einstufung||'sonstige')===k?'selected':''}>${esc(v.kurz)} – ${esc(v.lang)}</option>`).join('')}</select></label>
+      <label class="fld">Prüfungsbezug<select id="d-bezug">${Object.entries(BEZUG).map(([k,v])=>
+        `<option value="${k}" ${q&&(q.relevanz||'ergaenzend')===k?'selected':''}>${esc(v.kurz)} – ${esc(v.lang)}</option>`).join('')}</select></label>
       <label class="fld">Fundstelle<input id="d-herkunft" value="${esc(q&&q.herkunft?q.herkunft:'')}" placeholder="z. B. Informationen zur politischen Bildung 345"></label>
       <label class="fld">Dateiname<input id="d-datei" value="${esc(q?q.dateiname:'')}" spellcheck="false"></label>
       <label class="fld">Bemerkung<textarea id="d-bem" rows="2">${esc(q&&q.bemerkung?q.bemerkung:'')}</textarea></label>
@@ -1319,13 +1345,29 @@ function quelleBearbeiten(q){
     if(!titel||!datei){ $('#d-fehler').innerHTML='<div class="hinweis fehler">Titel und Dateiname sind Pflicht.</div>'; return; }
     const satz={kategorie:$('#d-kat').value, titel, dateiname:datei,
                 herausgeber:$('#d-geber').value.trim()||'Herkunft nicht vermerkt',
-                einstufung:$('#d-stufe').value,
+                einstufung:$('#d-stufe').value, relevanz:$('#d-bezug').value,
                 herkunft:$('#d-herkunft').value.trim()||null, bemerkung:$('#d-bem').value.trim()||null};
     const {error} = neu ? await sb.from('quelle').insert(satz)
                         : await sb.from('quelle').update(satz).eq('id', q.id);
     if(error){ $('#d-fehler').innerHTML=`<div class="hinweis fehler">${esc(fehlertext(error))}</div>`; return; }
     d.remove(); toast(neu?'Quelle angelegt.':'Quelle gespeichert.'); renderQuellen();
   };
+}
+
+/* Alle als "ohne Prüfungsbezug" eingestufte Quellen samt Datei entfernen. */
+async function ohneBezugEntfernen(){
+  const weg = QU_ALLE.filter(q=>q.relevanz==='abseits');
+  if(!weg.length) return;
+  const liste = weg.map(q=>'· '+q.titel).join('\n');
+  if(!confirm('Diese '+weg.length+' Quellen mitsamt ihren Dateien entfernen?\n\n'+liste
+              +'\n\nDie Fragen bleiben davon unberührt. Die Dateien liegen weiterhin auf deinem Rechner.')) return;
+  toast('Wird entfernt …');
+  const pfade = weg.map(q=>q.pfad).filter(Boolean);
+  if(pfade.length) await sb.storage.from('quellen').remove(pfade);
+  const {error} = await sb.from('quelle').delete().in('id', weg.map(q=>q.id));
+  if(error){ toast(fehlertext(error)); return; }
+  toast(weg.length+' Quellen entfernt.');
+  renderQuellen();
 }
 
 async function quelleLoeschen(q){
