@@ -418,6 +418,10 @@ function schaleBauen(){
         <div class="sec-h"><h2>Gezielt üben</h2></div>
         <div class="modes" id="modes-drill"></div>
       </div>
+      <div class="sec">
+        <div class="sec-h"><h2>Alle Tagespakete</h2><span class="note" id="pakete-note"></span></div>
+        <div class="card" id="pakete"></div>
+      </div>
     </div>`;
 
   $('#fr-menu').innerHTML = `
@@ -441,6 +445,10 @@ function schaleBauen(){
       <div class="sec">
         <div class="sec-h"><h2>Einzelne Teile</h2></div>
         <div class="modes" id="fr-drill"></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><h2>Alle Tagespakete</h2><span class="note" id="fr-pakete-note"></span></div>
+        <div class="card" id="fr-pakete"></div>
       </div>
     </div>`;
 
@@ -788,6 +796,97 @@ function renderMenu(){
   ].join('');
 
   $$('#train-menu .mode').forEach(b=>b.onclick=()=>start(JSON.parse(b.dataset.mode)));
+  paketliste();
+}
+
+/* ---------- Übersicht über alle Abschnitte ----------
+   Damit die Sammlung auch nach dreißig Tagen überschaubar bleibt: eine Zeile
+   je Paket mit Fortschritt, standardmäßig die letzten acht. */
+let PAKETE_ALLE=false, FR_PAKETE_ALLE=false;
+
+function paketZeile(name, teile, l, sofort){
+  const ges = teile.reduce((a,t)=>a+t.n, 0);
+  const auf = teile.reduce((a,t)=>a+t.gemacht, 0);
+  const ok  = teile.reduce((a,t)=>a+t.richtig, 0);
+  const quote = auf? Math.round(ok/auf*100) : null;
+  return `<div class="paket${auf===0?' neu':''}">
+    <span class="pn">${esc(name)}${sofort?' <em>neu</em>':''}</span>
+    <span class="pt">${teile.map(t=>`<span class="k-${t.kls}" title="${esc(t.name)}: ${t.gemacht} von ${t.n}">
+        <i class="pp"></i><span class="pz tnum">${t.gemacht}/${t.n}</span></span>`).join('')}</span>
+    <span class="pq tnum">${auf? quote+' %' : '–'}</span>
+    <span class="pb"><i style="width:${ges? Math.round(auf/ges*100):0}%"></i></span>
+    <span class="pa"><button class="btn ghost sm" data-paket="${esc(name)}">${auf===ges?'Wiederholen':'Üben'}</button></span>
+  </div>`;
+}
+
+function paketliste(){
+  const box=$('#pakete'); if(!box) return;
+  const l=letzteJeFrage();
+  const namen=[...new Set(F.map(q=>q.block))]
+    .sort((a,b)=>{
+      const ta=a.startsWith('Tag ')?parseInt(a.slice(4)):-1, tb=b.startsWith('Tag ')?parseInt(b.slice(4)):-1;
+      if(ta>=0&&tb>=0) return tb-ta;
+      if(ta>=0) return -1; if(tb>=0) return 1;
+      return b.localeCompare(a,'de');
+    });
+  const neuster = neuesteTage()[0];
+  const zeilen = namen.map(n=>{
+    const teile = ALLE.map(k=>{
+      const qs=F.filter(q=>q.block===n && q.kategorie===k);
+      return {kls:k, name:KAT[k].kurz, n:qs.length,
+              gemacht:qs.filter(q=>l[q.id]).length,
+              richtig:qs.filter(q=>l[q.id]&&l[q.id].ok).length};
+    }).filter(t=>t.n);
+    return {n, teile, offen: teile.reduce((a,t)=>a+(t.n-t.gemacht),0)};
+  });
+  const offen = zeilen.filter(z=>z.offen).length;
+  $('#pakete-note').textContent = zeilen.length + (zeilen.length===1?' Paket':' Pakete')
+    + (offen? ' · '+offen+' noch offen' : ' · alle bearbeitet');
+  const zeige = PAKETE_ALLE ? zeilen : zeilen.slice(0,8);
+  box.innerHTML = zeilen.length
+    ? zeige.map(z=>paketZeile(z.n, z.teile, l, z.n===neuster && z.offen===z.teile.reduce((a,t)=>a+t.n,0))).join('')
+      + (zeilen.length>8 ? `<div class="morerow"><button class="link" id="pakete-mehr">${
+          PAKETE_ALLE?'Nur die letzten acht zeigen':'Alle '+zeilen.length+' Pakete zeigen'}</button></div>`:'')
+    : '<div class="empty">Noch kein Abschnitt vorhanden.</div>';
+  const m=$('#pakete-mehr'); if(m) m.onclick=()=>{ PAKETE_ALLE=!PAKETE_ALLE; paketliste(); };
+  $$('#pakete [data-paket]').forEach(b=>b.onclick=()=>{
+    const n=b.dataset.paket;
+    start({typ:'orig', block:n, zeit:600, titel:n});
+  });
+}
+
+function frPaketliste(){
+  const box=$('#fr-pakete'); if(!box) return;
+  const l=letzteJeFrage();
+  const namen=[...new Set(FR.map(q=>q.block))]
+    .sort((a,b)=>{
+      const ta=a.startsWith('Tag ')?parseInt(a.slice(4)):-1, tb=b.startsWith('Tag ')?parseInt(b.slice(4)):-1;
+      if(ta>=0&&tb>=0) return tb-ta;
+      if(ta>=0) return -1; if(tb>=0) return 1;
+      return b.localeCompare(a,'de');
+    });
+  const zeilen = namen.map(n=>{
+    const teile = Object.keys(FR_TEIL).map(t=>{
+      const qs=FR.filter(q=>q.block===n && q.teil===t);
+      return {kls:'franzoesisch', name:FR_TEIL[t].kurz, n:qs.length,
+              gemacht:qs.filter(q=>l[q.id]).length,
+              richtig:qs.filter(q=>l[q.id]&&l[q.id].ok).length};
+    }).filter(t=>t.n);
+    return {n, teile, offen: teile.reduce((a,t)=>a+(t.n-t.gemacht),0)};
+  });
+  const offen = zeilen.filter(z=>z.offen).length;
+  $('#fr-pakete-note').textContent = zeilen.length + (zeilen.length===1?' Paket':' Pakete')
+    + (offen? ' · '+offen+' noch offen' : ' · alle bearbeitet');
+  const zeige = FR_PAKETE_ALLE ? zeilen : zeilen.slice(0,8);
+  box.innerHTML = zeilen.length
+    ? zeige.map(z=>paketZeile(z.n, z.teile, l, false)).join('')
+      + (zeilen.length>8 ? `<div class="morerow"><button class="link" id="fr-pakete-mehr">${
+          FR_PAKETE_ALLE?'Nur die letzten acht zeigen':'Alle '+zeilen.length+' Pakete zeigen'}</button></div>`:'')
+    : '<div class="empty">Noch kein Abschnitt vorhanden.</div>';
+  const m=$('#fr-pakete-mehr'); if(m) m.onclick=()=>{ FR_PAKETE_ALLE=!FR_PAKETE_ALLE; frPaketliste(); };
+  $$('#fr-pakete [data-paket]').forEach(b=>b.onclick=()=>{
+    start({view:'fr', typ:'frBlockAlle', block:b.dataset.paket, zeit:0, titel:b.dataset.paket+' · Französisch'});
+  });
 }
 
 const frTage = ()=> [...new Set(FR.map(q=>q.block).filter(b=>b.startsWith('Tag ')))]
@@ -834,6 +933,7 @@ function renderFrMenu(){
   }).join('');
 
   $$('#fr-menu .mode').forEach(b=>b.onclick=()=>start(JSON.parse(b.dataset.mode)));
+  frPaketliste();
 }
 
 /* =====================================================================
