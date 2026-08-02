@@ -65,6 +65,24 @@ function stemHtml(s){
   return esc(s).replace(/(\s[–-]\s*(?:kein|keine|keinen|nicht|falsch)\s*[–-]\s)/gi,
     m=>' <em>'+m.trim().replace(/^[–-]\s*|\s*[–-]$/g,'')+'</em> ');
 }
+/* Lesetext des Sprachtests. Im Durchgang mit eigener Höhe und zwei Schaltern,
+   in der Durchsicht ohne – der Aufbau bleibt derselbe, damit die Gestaltung greift. */
+let TEXT_ZU=false, TEXT_VOLL=false, TEXT_AKT=null;
+function artikelHtml(q, bedienbar){
+  if(!q.text) return '';
+  const inhalt = `<div class="text">${absatz(q.text)}${q.quelle?`<div class="q">${esc(q.quelle)}</div>`:''}</div>`;
+  if(!bedienbar)
+    return `<div class="artikel voll">${q.titel?`<div class="kopf statisch"><span>${esc(q.titel)}</span></div>`:''}${inhalt}</div>`;
+  return `<div class="artikel${TEXT_ZU?' zu':''}${TEXT_VOLL?' voll':''}">
+      <button class="kopf" id="t-zu">
+        <span>${esc(q.titel||'Text')}<small>Lesetext zu den folgenden Aufgaben</small></span>
+        <i class="pfeil">⌃</i>
+      </button>
+      ${inhalt}
+      <button class="mehrlesen" id="t-voll">${TEXT_VOLL?'Weniger anzeigen':'Ganz lesen'}</button>
+    </div>`;
+}
+
 function absatz(t){
   const s = String(t||'').replace(/\\n/g,'\n');       // auch maskierte Umbrueche beruecksichtigen
   return s.split(/\n{2,}/).map(a=>`<p>${esc(a).replace(/\n/g,' ')}</p>`).join('');
@@ -317,8 +335,10 @@ async function sichern(sess, neueAntworten){
    GERÜST DER ANSICHTEN
    ===================================================================== */
 /* Oben stehen die Übungsbereiche, alles Verwaltende liegt im Klappmenü. */
-const HAUPT = [['dash','Dashboard'], ['train','Trainer'],
-               ['archiv','Fehlerarchiv'], ['pool','Fragenpool']];
+/* Dritter Eintrag: Kurzform für die Tab-Leiste auf dem Telefon. */
+const HAUPT = [['dash','Dashboard','Übersicht'], ['train','Trainer','Trainer'],
+               ['archiv','Fehlerarchiv','Fehler'], ['pool','Fragenpool','Fragen']];
+const engesGeraet = ()=> matchMedia('(max-width:720px)').matches;
 const menuPunkte = ()=> istAdmin()
   ? [['konto','Konto','Zugang und Installation'], null,
      ['quellen','Quellen','Grundlage der Fragen'], ['nutzer','Nutzer','Konten und Einladungen']]
@@ -326,10 +346,11 @@ const menuPunkte = ()=> istAdmin()
 
 function navBauen(){
   const imMenu = menuPunkte().filter(Boolean).some(p=>p[0]===ANSICHT);
-  $('#nav').innerHTML = HAUPT.map(([v,t])=>
-      `<button data-v="${v}" class="${v===ANSICHT?'on':''}">${t}</button>`).join('')
+  const eng = engesGeraet();
+  $('#nav').innerHTML = HAUPT.map(([v,t,kurz])=>
+      `<button data-v="${v}" class="${v===ANSICHT?'on':''}">${eng? (kurz||t) : t}</button>`).join('')
     + `<button class="mehr${imMenu?' on':''}" id="nav-mehr" aria-haspopup="true" aria-expanded="false">${
-        istAdmin()?'Verwaltung':'Konto'}<span class="pfeil">▼</span></button>`;
+        eng ? 'Mehr' : (istAdmin()?'Verwaltung':'Konto')}<span class="pfeil">▼</span></button>`;
   $('#navpop').innerHTML = (istAdmin()? '<div class="kopfzeile">Verwaltung</div>':'')
     + menuPunkte().map(p=> p===null ? '<div class="trenner"></div>'
         : `<button data-v="${p[0]}" class="${p[0]===ANSICHT?'on':''}">${p[1]}<i>${p[2]}</i></button>`).join('');
@@ -740,7 +761,7 @@ function weak(){
       <span class="nm" title="${esc(katKurz(v.kat))} · ${esc(v.feld)}">${esc(v.feld)}</span>
       <span class="bar"><i style="width:${q}%"></i></span>
       <span class="qt" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %</span>
-      <span class="ct">${v.n-v.ok} ✕</span></div>`;
+      <span class="ct fehler">${v.n-v.ok}</span></div>`;
   }).join('')
     + `<div class="morerow" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
         <button class="link" id="weak-uebe">Diese Themen gezielt üben</button>
@@ -925,6 +946,7 @@ function renderTrainer(){
 }
 
 function renderMenu(){
+  document.body.classList.remove('imLauf');
   $('#train-menu').style.display=''; $('#train-run').style.display='none'; $('#train-run').innerHTML='';
   renderTrainer();
 
@@ -1084,6 +1106,8 @@ function start(cfg){
   LAUF={cfg, view:'train', mount:'#train-run', teile, ti:0, i:0, antw:{}, mark:{}, start:Date.now(), phase:'lauf'};
   $('#train-menu').style.display='none';
   $('#train-run').style.display='';
+  document.body.classList.add('imLauf');   /* Tab-Leiste weicht dem Prüfungsfuß */
+  TEXT_ZU=false; TEXT_VOLL=false; TEXT_AKT=null;
   ANSICHT='train'; navBauen();
   $$('.view').forEach(s=>s.classList.toggle('on', s.id==='v-train'));
   window.scrollTo({top:0});
@@ -1117,6 +1141,13 @@ function renderFrage(){
   const mehr=LAUF.teile.length>1;
   const vorher = LAUF.i>0 ? T.fragen[LAUF.i-1] : null;
   const zeigeText = q.text && (!vorher || vorher.textId!==q.textId);
+  /* Nur beim Wechsel auf einen anderen Artikel zurücksetzen – nicht bei
+     jedem Neuzeichnen derselben Frage, sonst klappt der Text sofort wieder auf. */
+  if(q.textId && q.textId!==TEXT_AKT){ TEXT_AKT=q.textId; TEXT_ZU=false; TEXT_VOLL=false; }
+  const markierte = T.fragen.map((f,i)=> LAUF.mark[f.id]? i : -1).filter(i=>i>=0);
+  /* Die Leiste zeigt jede Frage einzeln – ab 60 bliebe davon eine Wand.
+     Dann bleibt es bei der eingeklappten Übersicht am Seitenende. */
+  const sprungleiste = n<=60;
 
   $(LAUF.mount).innerHTML=`
     <div class="exambar">
@@ -1130,16 +1161,13 @@ function renderFrage(){
         <button class="btn ghost sm" id="abbruch">Abbrechen</button>
       </div>
       <div class="trail"><i style="width:${Math.round(beantwortet/n*100)}%"></i></div>
+      ${sprungleiste? `<div class="sprung" id="sprung">${T.fragen.map((f,i)=>
+        `<button data-i="${i}" class="${LAUF.antw[f.id]!==undefined?'done':''} ${LAUF.mark[f.id]?'mark':''} ${i===LAUF.i?'cur':''}">${i+1}</button>`).join('')}</div>`:''}
     </div>
 
-    <div class="wrap"><div class="runwrap">
+    <div class="wrap${sprungleiste?' hat-sprung':''}"><div class="runwrap">
       <div class="qcard ${kls}${LAUF.mark[q.id]?' marked':''}">
-        ${q.text?`<div class="artikel"${zeigeText?'':' style="display:none"'}>
-            ${q.titel?`<h4>${esc(q.titel)}</h4>`:''}
-            ${absatz(q.text)}
-            ${q.quelle?`<div class="q">${esc(q.quelle)}</div>`:''}
-          </div>
-          ${zeigeText?'':`<button class="link" id="showtext" style="margin-bottom:22px">Text erneut anzeigen</button>`}`:''}
+        ${q.text? artikelHtml(q, true) : ''}
         <div class="qhead">
           <span class="tag">${esc(marke)}</span>
           <span class="qnum">Frage ${LAUF.i+1} von ${n}${fr?' · '+q.punkte+(q.punkte===1?' Punkt':' Punkte'):''}</span>
@@ -1153,6 +1181,7 @@ function renderFrage(){
           ${LAUF.i===0 && LAUF.ti>0 && LAUF.cfg.gesamt
             ? `<button class="btn ghost" id="prevteil">← Teil ${LAUF.ti}</button>`
             : `<button class="btn ghost" id="prev" ${LAUF.i===0?'disabled':''}>Zurück</button>`}
+          <button class="markenav" id="marknav" ${markierte.length?'':'disabled'} title="Zur nächsten markierten Frage">★ ${markierte.length}</button>
           <span class="small mute tnum" style="margin-left:auto">${beantwortet} von ${n} beantwortet${
             LAUF.cfg.gesamt? ' · gesamt '+LAUF.teile.flatMap(t=>t.fragen).filter(f=>LAUF.antw[f.id]!==undefined).length+' von '+LAUF.teile.reduce((a,t)=>a+t.fragen.length,0):''}</span>
           ${LAUF.i===n-1
@@ -1179,7 +1208,23 @@ function renderFrage(){
   MM('.opts .opt').forEach(b=>b.onclick=()=>{ LAUF.antw[q.id]=+b.dataset.o; if(LAUF.i<n-1) LAUF.i++; renderFrage(); });
   MM('.pg').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
   M('#mark').onclick=()=>{ LAUF.mark[q.id]=!LAUF.mark[q.id]; renderFrage(); };
-  const st=M('#showtext'); if(st) st.onclick=()=>{ const a=M('.artikel'); if(a) a.style.display=''; st.style.display='none'; };
+
+  /* Sprungleiste: Klicks binden und die aktuelle Frage mittig nachführen. */
+  MM('#sprung button').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
+  const leiste=M('#sprung'), akt=leiste && leiste.children[LAUF.i];
+  if(akt) leiste.scrollTo({left:Math.max(0, akt.offsetLeft - leiste.clientWidth/2 + akt.offsetWidth/2), behavior:'smooth'});
+
+  const mn=M('#marknav');
+  if(mn && markierte.length) mn.onclick=()=>{
+    const naechste = markierte.find(i=>i>LAUF.i);
+    LAUF.i = naechste===undefined ? markierte[0] : naechste;
+    renderFrage();
+  };
+
+  /* Lesetext ein- und ausklappen beziehungsweise auf Lesehöhe vergrößern. */
+  const tz=M('#t-zu'), tv=M('#t-voll');
+  if(tz) tz.onclick=()=>{ TEXT_ZU=!TEXT_ZU; TEXT_VOLL=false; renderFrage(); };
+  if(tv) tv.onclick=()=>{ TEXT_VOLL=!TEXT_VOLL; TEXT_ZU=false; renderFrage(); };
   const p=M('#prev'), nx=M('#next'), fe=M('#fertig');
   if(p) p.onclick=()=>{ LAUF.i--; renderFrage(); };
   const pt=M('#prevteil'); if(pt) pt.onclick=()=>{ LAUF.ti--; LAUF.i=aktTeil().fragen.length-1; renderFrage(); window.scrollTo({top:0}); };
@@ -1232,6 +1277,7 @@ function ring(p, farbe){
 }
 
 function renderErgebnis(alle, sess){
+  document.body.classList.remove('imLauf');
   const nurFr = sess.kats.length===1 && sess.kats[0]==='franzoesisch';
   const fr = sess.kats.includes('franzoesisch');
   const farbe = sess.quote>=70?'#1c6f45':sess.quote>=50?'#8a6d0b':'#b3121b';
@@ -1255,8 +1301,7 @@ function renderErgebnis(alle, sess){
       <span class="mk ${offen?'s':ok?'r':'w'}">${offen?'–':ok?'✓':'✕'}</span>
       <span><span class="mute tnum small">${i+1}</span>&nbsp;&nbsp;${stemHtml(q.frage)}</span></summary>
       <div class="body">
-        ${q.text?`<div class="artikel">${q.titel?`<h4>${esc(q.titel)}</h4>`:''}${absatz(q.text)}
-          ${q.quelle?`<div class="q">${esc(q.quelle)}</div>`:''}</div>`:''}
+        ${artikelHtml(q, false)}
         <div class="opts">${q.optionen.map((o,j)=>
           `<div class="opt static ${j===q.loesung?'right':(j===g?'wrong':'')}"><span class="ltr">${LTR[j]}</span><span>${esc(o)}</span></div>`).join('')}</div>
         <div class="expl ${offen?'':ok?'ok':'bad'}"><b>${offen?'Nicht beantwortet.':ok?'Richtig.':'Deine Antwort: '+LTR[g]+' · richtig ist '+LTR[q.loesung]+'.'}</b> ${esc(q.erlaeuterung)}</div>
@@ -1331,7 +1376,7 @@ function renderArchiv(){
      <div class="card" style="margin-bottom:26px">
        ${felder.map(f=>`<div class="feld k-${f.kat}">
           <span class="sq"></span><span class="nm">${esc(f.s)}</span>
-          <span class="ct" style="width:auto">${f.n} ✕</span>
+          <span class="ct fehler" style="width:auto">${f.n}</span>
           <span style="flex:none"><button class="btn ghost sm" data-feld="${esc(f.s)}">Üben</button></span>
         </div>`).join('')}
      </div>
@@ -1433,7 +1478,7 @@ function poolEintrag(q, a){
     <span class="mk ${a?(a.ok?'r':'w'):'s'}">${a?(a.ok?'✓':'✕'):'·'}</span>
     <span><span class="tagrow"><span class="tag k-${q.kategorie}" style="font-size:11px">${katKurz(q.kategorie)}</span></span>${stemHtml(q.frage)}</span></summary>
     <div class="body">
-      ${q.text?`<div class="artikel">${q.titel?`<h4>${esc(q.titel)}</h4>`:''}${absatz(q.text)}</div>`:''}
+      ${artikelHtml(q, false)}
       <div class="opts">${q.optionen.map((o,j)=>
         `<div class="opt static ${j===q.loesung?'right':(a&&j===a.gew?'wrong':'')}"><span class="ltr">${LTR[j]}</span><span>${esc(o)}</span></div>`).join('')}</div>
       <div class="expl">${esc(q.erlaeuterung)}</div>

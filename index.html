@@ -398,66 +398,435 @@ details.lp-auf>summary:hover{background:var(--tint)}
   .wrap{padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
   .page{padding-top:36px;margin-bottom:36px} .spec{grid-template-columns:1fr}
 }
+/* =====================================================================
+   Testtrainer · Mobil (iPhone, Home-Bildschirm / Safari standalone)
+   ---------------------------------------------------------------------
+   Ersetzt den Block  @media(max-width:720px){ … }  am Ende von index.html.
+   Der Block @media(max-width:980px){…} bleibt unverändert stehen.
+
+   Ausgangslage: die App läuft nicht aus dem App Store, sondern als
+   Verknüpfung auf dem Home-Bildschirm (display:standalone). Daraus folgt:
+     · keine Adressleiste, keine Zurück-Wischgeste  -> jede Ansicht braucht
+       einen sichtbaren Ausstieg (Tab-Leiste bzw. „Abbruch“ in der Prüfung)
+     · Safe Areas oben (Dynamic Island) und unten (Home-Indikator)
+     · kein Bounce/Overscroll, kein Zoom beim Tippen in Felder
+   ===================================================================== */
+
+/* ---------- 1 · Grundlagen für den Standalone-Betrieb ---------- */
 @media(max-width:720px){
-  :root{--kopf:0px}
-  body{font-size:16px}
-  .wrap{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
-  header{position:static}
-  .hd{flex-wrap:wrap;height:auto;gap:0;padding-top:calc(12px + env(safe-area-inset-top))}
-  .brand{padding-bottom:12px} .brand .s{display:block}
-  nav{width:100%;margin-left:0;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  nav::-webkit-scrollbar{display:none}
-  nav button{padding:12px 14px;font-size:15px;white-space:nowrap;flex:none}
-  #navpop{left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));width:auto}
-  .konto{padding:16px;gap:12px} .konto .akt{width:100%;min-width:0;margin-left:0;justify-content:flex-end}
-  .konto .wahl{flex:1 1 100%} .konto .wahl label{flex:1} .konto .wahl select{min-width:0;width:100%}
-  .konto .zahlen{min-width:0}
-  .einladung{padding:14px 16px;gap:10px} .einladung .akt{width:100%;margin-left:0;justify-content:flex-end}
-  .gebiet>summary{padding:14px 16px;gap:10px} .gebiet .name{font-size:14px}
-  .tr-block{padding-bottom:22px;margin-bottom:22px}
-  .optionen,.optionen.zwei{grid-template-columns:1fr}
-  .tr-opt{padding:14px 16px}
-  .umfang{gap:14px} .tr-zahl{font-size:28px;min-width:62px}
-  .tr-start{gap:14px} .tr-start .btn{width:100%}
-  .chip{padding:10px 13px;font-size:14.5px}
-  .paket{padding:14px 16px;gap:10px;flex-wrap:wrap}
-  .paket .pn{flex:1 1 auto} .paket .pq{flex:none} .paket .pb{display:none}
-  .paket .pt{flex:1 1 100%;order:3;gap:14px;flex-wrap:wrap}
-  .paket .pa{order:2}
-  h1{font-size:27px} h2{font-size:20px}
-  .page{padding:24px 0 0;margin-bottom:28px} .page .row{padding-bottom:22px;gap:20px}
-  .lead{font-size:17px;margin-top:12px}
-  .cd{gap:10px} .cd .n{font-size:46px} .cd .u{font-size:15px}
-  .sec{margin-top:36px} .grid{gap:14px} .g4{grid-template-columns:repeat(2,1fr)}
-  .card.pad{padding:18px}
-  .kpi{padding:16px 18px} .kpi .val{font-size:31px;margin-top:8px} .kpi .lab{font-size:11.5px}
-  .exambar{top:0;margin-bottom:26px;padding-top:env(safe-area-inset-top)}
-  .exambar .in{padding:12px 16px 10px;gap:12px;flex-wrap:wrap;align-items:center}
-  .exambar .in>div:first-child{flex:1 1 100%!important;order:-1}
-  .exambar .in>div:nth-child(2){flex:0 0 auto}
-  .exambar .in .btn{flex:none;margin-left:auto}
-  .exambar .what{font-size:16px} .timer{font-size:26px} .timerlab{margin-bottom:2px}
-  .runwrap{max-width:none} .qcard{padding:0}
-  .qcard.marked{margin-left:0;padding-left:14px}
-  .qhead{gap:10px;margin-bottom:18px} .qhead .tag{display:none} .markhint{font-size:11.5px}
-  .stem{font-size:19px;margin-bottom:22px}
-  .opt{padding:14px 15px;font-size:16px;gap:12px} .opt .ltr{width:26px;height:26px}
-  .qfoot{flex-wrap:wrap;gap:10px;margin-top:26px}
-  .qfoot .small{order:3;flex:1 1 100%;text-align:center;margin-left:0!important}
-  .btn{padding:12px 18px} .pg{width:38px;height:38px;font-size:14px}
-  .artikel{padding:18px 16px} .artikel p{font-size:15.5px;line-height:1.6}
-  .score{padding:22px 18px;gap:22px;justify-content:center;text-align:center}
-  .score>div:last-child{flex:1 1 100%} .score>div:last-child .btn{width:100%}
-  .rev>summary{padding:14px 16px;font-size:15.5px;gap:12px} .rev .body{padding:18px 16px 20px}
-  .expl{padding:14px 16px;font-size:15px}
-  .feld{padding:13px 16px;gap:10px} .feld .bar{display:none} .feld .nm{font-size:15px}
-  th,td{padding-left:10px;padding-right:10px} table{font-size:14.5px}
-  .modes{grid-template-columns:1fr} .mode{min-height:0;padding:20px}
-  .quelle{padding:12px 14px;gap:10px;flex-wrap:wrap}
-  .quelle .akt{width:100%;justify-content:flex-end}
-  main{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
+  html{
+    -webkit-text-size-adjust:100%;
+    height:-webkit-fill-available;   /* Safari-Adressleiste, falls doch im Browser */
+  }
+  body{
+    font-size:16px;
+    overscroll-behavior-y:none;      /* kein Gummiband über der Kopfzeile */
+    -webkit-tap-highlight-color:transparent;
+    text-rendering:optimizeLegibility;
+  }
+  button,.chip,.opt,.tr-opt,.pg,.stufe-btn,a{ touch-action:manipulation; }  /* kein Doppeltipp-Zoom */
+
+  /* Eingabefelder nie unter 16px: sonst zoomt iOS beim Fokus hinein. */
+  input,select,textarea{ font-size:16px; border-radius:11px; padding:14px 15px; }
+  input[type=search]{ -webkit-appearance:none; }
+  select{ -webkit-appearance:none; background-image:none; }
+
+  /* Ränder folgen der Safe Area, nicht dem Displayrand. */
+  .wrap{
+    padding-left:max(16px,env(safe-area-inset-left));
+    padding-right:max(16px,env(safe-area-inset-right));
+  }
 }
-@media print{header,nav,.qfoot,.exambar,.navi{display:none}}
+
+/* ---------- 2 · Kopfzeile: großer Titel statt Menüband ---------- */
+@media(max-width:720px){
+  :root{ --kopf:0px; --tableiste:74px; }
+
+  /* Kein backdrop-filter auf dem Kopf: er erzeugt sonst einen eigenen
+     Bezugsrahmen, und die fest verankerte Tab-Leiste in <nav> würde daran
+     kleben statt am unteren Fensterrand. */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:var(--paper);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .hd{
+    height:auto; gap:10px;
+    padding-top:calc(10px + env(safe-area-inset-top));
+    padding-bottom:10px;
+  }
+  .brand{ padding-bottom:0; gap:10px; }
+  .brand .t{ font-size:15px; }
+  .brand .s{ display:block; font-size:11.5px; }
+
+  /* Seitentitel groß, direkt unter der Marke – iOS „Large Title“. */
+  .page{ padding:16px 0 0; margin-bottom:22px; border-bottom:0; }
+  .page .row{ padding-bottom:16px; gap:16px; }
+  .eyebrow{ font-size:11.5px; margin-bottom:8px; }
+  h1{ font-size:30px; line-height:1.12; letter-spacing:-.028em; }
+  h2{ font-size:19px; }
+  .lead{ font-size:16px; line-height:1.5; margin-top:10px; }
+  .cd{ gap:10px } .cd .n{ font-size:44px } .cd .u{ font-size:15px }
+}
+
+/* ---------- 3 · Tab-Leiste unten (aus der vorhandenen <nav>) ----------
+   Kein Markup-Umbau nötig: die fünf Schaltflächen in #nav – vier Ansichten
+   plus „Verwaltung/Konto“ – werden zur festen Leiste am unteren Rand.     */
+@media(max-width:720px){
+  nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:60;
+    width:auto; margin:0; gap:0;
+    display:flex; overflow:visible;
+    background:rgba(255,255,255,.93);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);
+    backdrop-filter:saturate(180%) blur(20px);
+    border-top:1px solid var(--line-soft);
+    padding:8px max(4px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom));
+  }
+  nav button,
+  nav button.mehr{
+    flex:1 1 0; min-width:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    margin:0; padding:6px 2px; border:0; border-bottom:0;
+    font-size:10.5px; line-height:1.15; letter-spacing:-.01em;
+    color:var(--muted-2); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  /* Quadrat als Symbol – dieselbe Bildsprache wie .tag::before */
+  nav button::before{
+    content:""; width:9px; height:9px; background:#9aa2ac; flex:none;
+  }
+  nav button.on{ color:var(--ink); font-weight:700; border-bottom-color:transparent; }
+  nav button.on::before{ background:var(--ink); }
+  nav button.mehr .pfeil{ display:none; }
+
+  /* Das Klappmenü öffnet nach oben, über der Leiste. */
+  #navpop{
+    position:fixed; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom)); top:auto;
+    left:max(12px,env(safe-area-inset-left)); right:max(12px,env(safe-area-inset-right)); width:auto;
+    border-radius:14px; box-shadow:0 -10px 40px rgba(0,0,0,.18); padding:8px;
+  }
+  #navpop button{ min-height:52px; border-radius:10px; padding:12px 14px; font-size:16px; }
+
+  /* Platz für die Leiste am Seitenende. */
+  main{ padding-bottom:calc(var(--tableiste) + 24px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------- 4 · Karten und Listen ---------- */
+@media(max-width:720px){
+  .sec{ margin-top:26px }
+  .sec-h{ padding-bottom:10px; margin-bottom:12px; border-bottom:0 }
+  .sec-h h2{ font-size:13px }
+  .sec-h .note{ font-size:12.5px }
+
+  .grid{ gap:10px }
+  .g4{ grid-template-columns:repeat(2,1fr) }
+  .g3,.g2{ grid-template-columns:1fr }
+
+  .card{ border-radius:14px; border-color:var(--line-soft) }
+  .card.pad{ padding:16px 18px }
+  .kpi{ padding:14px 16px 15px }
+  .kpi .lab{ font-size:11px }
+  .kpi .val{ font-size:29px; margin-top:9px }
+  .kpi .val span{ font-size:15px }
+  .kpi .sub{ font-size:12px; margin-top:6px }
+
+  /* Tagesaufgaben und Prüfungsteile als Liste, nicht als Kachelraster. */
+  .standkarte h3{ min-height:0; margin:10px 0 14px; font-size:16px }
+  .standkarte .wert{ font-size:30px }
+  .tagpost h3{ min-height:0 }
+  .tagpost .btn{ min-height:50px; border-radius:12px }
+
+  .feld{ padding:13px 16px; gap:12px; min-height:56px }
+  .feld .bar{ display:none }
+  .feld .nm{ font-size:15.5px }
+  .paket{ padding:13px 16px; gap:10px; flex-wrap:wrap; min-height:56px }
+  .paket .pn{ flex:1 1 auto } .paket .pb{ display:none }
+  .paket .pt{ flex:1 1 100%; order:3; gap:14px; flex-wrap:wrap } .paket .pa{ order:2 }
+  .modes{ grid-template-columns:1fr }
+  .mode{ min-height:0; padding:18px 20px; border-radius:14px }
+  .mode .go{ right:20px; bottom:18px }
+
+  table{ font-size:14.5px } th,td{ padding-left:10px; padding-right:10px }
+  .tabelle{ margin:0 -2px }
+}
+
+/* ---------- 5 · Trainer ---------- */
+@media(max-width:720px){
+  .tr-block{ padding-bottom:20px; margin-bottom:20px }
+  .chip{ min-height:44px; padding:0 14px; border-radius:11px; font-size:15px }
+  .optionen,.optionen.zwei{ grid-template-columns:1fr }
+  .tr-opt{ padding:15px 16px; border-radius:12px; min-height:56px }
+  .umfang{ gap:14px }
+  .umfang input[type=range]{ height:34px }   /* größerer Griffbereich */
+  .tr-zahl{ font-size:30px; min-width:62px }
+  .stufe-btn{ min-height:40px; border-radius:10px; padding:0 16px }
+
+  /* Startknopf klebt über der Tab-Leiste, immer erreichbar. */
+  .tr-start{
+    position:sticky; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom));
+    z-index:30; margin:22px -16px 0; padding:12px 16px 14px;
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);
+    backdrop-filter:saturate(180%) blur(18px);
+    border-top:1px solid var(--line-soft); border-bottom:0; gap:8px;
+  }
+  .tr-start .btn{ order:1; width:100%; min-height:54px; border-radius:13px; font-size:17px; padding:0 }
+  .tr-zusammen{ order:2; flex:1 1 100%; text-align:center; font-size:12.5px }
+}
+
+/* ---------- 6 · Prüfung: eine Frage je Bildschirm ---------- */
+@media(max-width:720px){
+  /* Im Durchgang verschwindet die Tab-Leiste – Ausstieg nur über „Abbruch“.
+     Dazu setzt app.js beim Start   document.body.classList.add('imLauf')
+     und beim Verlassen  .remove('imLauf')  (siehe mobile-ios-snippets.html) */
+  body.imLauf nav,
+  body.imLauf #navpop{ display:none }
+  body.imLauf header .hd{ padding-top:calc(6px + env(safe-area-inset-top)); padding-bottom:6px }
+  body.imLauf main{ padding-bottom:calc(96px + env(safe-area-inset-bottom)) }
+
+  .exambar{
+    top:0; margin-bottom:20px; padding-top:0;
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);
+    backdrop-filter:saturate(180%) blur(18px);
+  }
+  .exambar .in{ padding:10px 16px; gap:12px; flex-wrap:nowrap; align-items:center }
+  .exambar .in>div:first-child{ flex:1 1 auto!important; min-width:0; order:0 }
+  .exambar .who{ font-size:10.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .exambar .what{ font-size:15px }
+  .exambar .in .btn{ margin-left:0; min-height:38px; border-radius:10px; padding:0 13px }
+  .timer{ font-size:24px } .timerlab{ display:none }
+  .exambar .in>.small{ flex:none; font-size:11.5px; white-space:nowrap; line-height:1.2; text-align:right }
+
+  .runwrap{ max-width:none }
+  .qcard{ padding:0 }
+  .qcard.marked{ margin-left:0; padding-left:12px }
+  .qhead{ gap:10px; margin-bottom:14px }
+  .qnum{ font-size:12.5px }
+  .stem{ font-size:21px; line-height:1.36; margin-bottom:20px }
+
+  /* Antwortflächen: volle Breite, mindestens 56 px hoch. */
+  .opts{ gap:10px }
+  .opt{ min-height:56px; padding:15px 16px; font-size:16.5px; gap:14px; border-radius:13px }
+  .opt .ltr{ width:28px; height:28px }
+
+  /* Fuß fest am unteren Rand: Zurück · Stand · Weiter. */
+  .qfoot{
+    position:fixed; left:0; right:0; bottom:0; z-index:45;
+    margin:0; padding:10px max(16px,env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);
+    backdrop-filter:saturate(180%) blur(18px);
+    border-top:1px solid var(--line-soft); border-bottom:0;
+    display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+  }
+  .qfoot .btn{ min-height:52px; border-radius:13px; padding:0 20px; flex:none }
+  .qfoot .btn.ghost{ min-width:96px }
+  .qfoot .small{
+    order:0; flex:1 1 auto; margin:0!important; text-align:center;
+    font-size:12.5px; line-height:1.25;
+  }
+
+  /* Sprungleiste unter der Kopfzeile: alle Fragen als Streifen, der
+     Streifen führt die aktuelle Frage automatisch mittig nach.
+     Markup dazu in mobile-ios-snippets.html, Abschnitt 4. */
+  .sprung{
+    display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; max-width:100%;
+    -webkit-overflow-scrolling:touch; margin:0;
+    padding:2px max(16px,env(safe-area-inset-right)) 9px max(16px,env(safe-area-inset-left));
+  }
+  .sprung::-webkit-scrollbar{ display:none }
+  .sprung button{
+    flex:none; width:38px; height:38px; border-radius:10px; display:grid; place-items:center;
+    font-size:14px; font-variant-numeric:tabular-nums;
+    background:#fff; color:#9aa2ac; border:1px solid var(--line-soft);
+  }
+  .sprung button.done{ background:var(--tint-2); color:var(--text); border-color:#dfe2e6 }
+  .sprung button.mark{ background:#fdf4dd; color:var(--gold); border-color:var(--gold); font-weight:700 }
+  .sprung button.cur{ background:var(--ink); color:#fff; border-color:var(--ink); font-weight:700 }
+  .sprung button.cur.mark{ box-shadow:inset 0 -4px 0 var(--gold) }
+
+  /* Im Fuß: Sprung zur nächsten Markierung, ohne Umweg über die Übersicht. */
+  .qfoot .markenav{
+    flex:none; min-height:52px; padding:0 12px; border-radius:13px; font-size:14.5px; font-weight:700;
+    border:1px solid var(--gold); background:#fdf4dd; color:var(--gold);
+  }
+  .qfoot .markenav:disabled{ border-color:var(--line-soft); background:var(--tint); color:#c3c8ce; opacity:1 }
+
+  /* Fragenübersicht eingeklappt, Ziele 44 px. */
+  .navi{ margin-top:22px; padding-top:18px }
+  .pgrid{ gap:8px }
+  .pg{ width:44px; height:44px; font-size:14.5px; border-radius:10px }
+  .pglegend{ gap:14px; font-size:12px }
+
+  /* Lesetexte des Sprachtests: dürfen die Aufgabe nicht vom Bildschirm
+     schieben. Der Text bekommt eine eigene Höhe mit eigenem Scroll und
+     lässt sich ein-/ausklappen bzw. auf Lesehöhe vergrößern.
+     app.js rendert den Text bereits als .artikel – hier nur die Hülle. */
+  .artikel{
+    padding:0; border-radius:12px; margin:14px 0 18px;
+    border:1px solid var(--line); border-left:4px solid var(--franz); background:var(--tint);
+    overflow:hidden;
+  }
+  /* Titelzeile ist der Schalter zum Ein- und Ausklappen. */
+  .artikel .kopf{
+    width:100%; display:flex; align-items:center; gap:10px; text-align:left;
+    padding:13px 16px 11px; background:none; border:0; font:inherit;
+  }
+  .artikel .kopf span{ flex:1; min-width:0; font-size:15px; font-weight:700; color:var(--ink); line-height:1.3 }
+  .artikel .kopf small{ display:block; font-size:11.5px; font-weight:400; color:var(--muted-2); margin-top:2px }
+  .artikel .kopf .pfeil{ flex:none; font-style:normal; font-size:15px; color:#9aa2ac; transition:transform .15s }
+  .artikel.zu .kopf .pfeil{ transform:rotate(180deg) }
+  /* Vergrößern steht dort, wo der Text abbricht – nicht oben neben dem Titel. */
+  .artikel .mehrlesen{
+    width:100%; min-height:40px; border:0; border-top:1px solid var(--line-soft);
+    background:var(--paper); font-size:13.5px; font-weight:600; color:var(--franz);
+  }
+  .artikel.zu .mehrlesen{ display:none }
+  .artikel .text{                     /* Absätze in einen Rahmen mit eigenem Scroll */
+    max-height:188px; overflow-y:auto; overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch; padding:0 16px 14px;
+    -webkit-mask-image:linear-gradient(#000 calc(100% - 22px),transparent);
+  }
+  .artikel.voll .text{ max-height:460px; -webkit-mask-image:none }
+  .artikel.zu .text{ display:none }
+  .artikel p{ font-size:15.5px; line-height:1.62; margin-bottom:12px }
+  .artikel .q{ font-size:12px; margin-top:0; padding:0 16px 12px }
+  .artikel .schalter{
+    margin-left:auto; display:flex; gap:8px; flex:none;
+  }
+  .artikel .schalter button{
+    min-height:34px; padding:0 11px; border:1px solid var(--line); background:var(--paper);
+    border-radius:9px; font-size:13px; font-weight:600; color:var(--muted); white-space:nowrap;
+  }
+  .artikel .schalter button.lesen{ color:var(--franz) }
+
+  /* Aufgabenstellungen des Sprachtests sind oft länger als im Fachtest. */
+  .stem{ hyphens:auto; -webkit-hyphens:auto; overflow-wrap:break-word }
+  .opt span:last-child{ overflow-wrap:break-word; hyphens:auto; -webkit-hyphens:auto }
+}
+
+/* ---------- 7 · Ergebnis und Durchsicht ---------- */
+@media(max-width:720px){
+  .score{ padding:20px 18px; gap:18px; justify-content:flex-start; text-align:left }
+  .score svg{ width:104px; height:104px }
+  .score>div:last-child{ flex:1 1 100%; display:flex; gap:10px }
+  .score>div:last-child .btn{ flex:1; min-height:54px; border-radius:13px }
+  .spec{ grid-template-columns:1fr }
+  .verdict{ width:100%; justify-content:center; padding:12px 16px; border-radius:11px }
+
+  .rev{ border-radius:14px; margin-bottom:10px }
+  .rev>summary{ padding:15px 16px; font-size:15.5px; gap:12px; min-height:56px }
+  .rev .body{ padding:0 16px 16px }
+  .opt.static{ min-height:0; padding:12px 14px; font-size:15px; border-radius:11px }
+  .expl{ padding:14px 16px; font-size:14.5px; border-radius:0 8px 8px 0 }
+  .srcline{ font-size:12px }
+}
+
+/* ---------- 8 · Anmeldung, Meldungen, Verwaltung ---------- */
+@media(max-width:720px){
+  #anmeldung{ padding:calc(24px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-left))
+              calc(40px + env(safe-area-inset-bottom)) }
+  .anmeldebox h1{ font-size:26px }
+  .btn{ min-height:52px; border-radius:12px; padding:0 20px }
+  .btn.sm{ min-height:40px; border-radius:10px; padding:0 14px }
+  .btn.blk{ width:100% }
+  .toast{
+    left:16px; right:16px; bottom:calc(var(--tableiste) + 12px + env(safe-area-inset-bottom));
+    transform:translateY(90px); max-width:none; border-radius:12px; padding:14px 18px;
+  }
+  .toast.on{ transform:none }
+  .hinweis{ border-radius:0 10px 10px 0 }
+
+  .konto{ padding:16px; gap:12px }
+  .konto .akt{ width:100%; min-width:0; margin-left:0; justify-content:flex-end }
+  .konto .wahl{ flex:1 1 100% } .konto .wahl label{ flex:1 } .konto .wahl select{ min-width:0; width:100% }
+  .konto .zahlen{ min-width:0 }
+  .einladung{ padding:14px 16px; gap:10px } .einladung .akt{ width:100%; margin-left:0; justify-content:flex-end }
+  .gebiet{ border-radius:14px } .gebiet>summary{ padding:15px 16px; gap:10px; min-height:56px }
+  .quelle{ padding:13px 16px; gap:10px; flex-wrap:wrap } .quelle .akt{ width:100%; justify-content:flex-end }
+}
+
+/* ---------- 9 · Nur im Home-Bildschirm-Betrieb ---------- */
+@media(display-mode:standalone){
+  /* Keine Zurück-Geste: der Abbruch-Knopf in der Prüfung wird deutlicher. */
+  .exambar .in .btn{ border-color:var(--muted-2) }
+  /* Hinweis „Zum Home-Bildschirm hinzufügen“ ausblenden, wenn schon geschehen. */
+  .installhinweis{ display:none!important }
+}
+
+/* =====================================================================
+   Aus dem iPhone-Umbau übernommen – gilt auch am Schreibtisch
+   ===================================================================== */
+/* Gilt überall: Übersicht entfällt, wenn die Sprungleiste oben steht. */
+.hat-sprung .navi{display:none}
+.feld .ct,.gebiet .fehlt{white-space:nowrap}
+.feld .ct.fehler::before{content:"✕";font-size:10.5px;color:var(--muted-2);opacity:.7;
+  margin-right:5px;vertical-align:1px;font-variant-numeric:normal}
+
+@media(min-width:721px){
+
+  /* Sprungleiste in der Prüfung */
+  .sprung{display:flex;gap:5px;flex-wrap:wrap;align-items:center;
+    max-width:var(--measure);margin:0 auto;padding:12px 32px 14px}
+  .sprung button{width:30px;height:30px;border-radius:2px;display:grid;place-items:center;
+    font-size:12.5px;font-variant-numeric:tabular-nums;
+    background:var(--paper);color:var(--muted-2);border:1px solid var(--line-soft)}
+  .sprung button:hover{border-color:var(--ink);color:var(--ink)}
+  .sprung button.done{background:var(--tint-2);color:var(--text);border-color:#dfe2e6}
+  .sprung button.mark{background:#fdf4dd;color:var(--gold);border-color:var(--gold);font-weight:700}
+  .sprung button.cur{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:700}
+  .sprung button.cur.mark{box-shadow:inset 0 -3px 0 var(--gold)}
+  .markenav{height:38px;padding:0 13px;border-radius:2px;font-size:14px;font-weight:700;
+    border:1px solid var(--gold);background:#fdf4dd;color:var(--gold);flex:none}
+  .markenav:disabled{border-color:var(--line-soft);background:var(--tint);color:#c3c8ce;opacity:1;cursor:default}
+  /* Steht die Leiste oben, entfällt die Übersicht am Seitenende. */
+
+  /* Handlungstaste des Trainers bleibt sichtbar */
+  .tr-start{position:sticky;bottom:0;z-index:20;
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
+    margin:28px -28px -26px;padding:20px 28px;border-top:1px solid var(--line)}
+
+  /* Lesetext mit eigenem Scrollbereich statt endloser Textwand */
+  .artikel .kopf{width:100%;display:flex;align-items:center;gap:12px;text-align:left;
+    padding:16px 24px 12px;background:none;border:0;font:inherit}
+  .artikel .kopf span{flex:1;min-width:0;font-size:17px;font-weight:700;color:var(--ink);line-height:1.3}
+  .artikel .kopf small{display:block;font-size:12.5px;font-weight:400;color:var(--muted-2);margin-top:3px}
+  .artikel .kopf .pfeil{flex:none;font-style:normal;font-size:15px;color:#9aa2ac;transition:transform .15s}
+  .artikel .kopf.statisch{cursor:default;padding-bottom:6px}
+  .artikel.zu .kopf .pfeil{transform:rotate(180deg)}
+  .artikel{padding:0}
+  .artikel .text{max-height:340px;overflow-y:auto;overscroll-behavior:contain;padding:0 24px 18px}
+  .artikel.voll .text{max-height:none}
+  .artikel.zu .text{display:none}
+  .artikel .mehrlesen{width:100%;min-height:40px;border:0;border-top:1px solid var(--line-soft);
+    background:var(--paper);font-size:13.5px;font-weight:600;color:var(--franz)}
+  .artikel.zu .mehrlesen{display:none}
+  .artikel .q{padding:0;margin-top:12px}
+
+  /* Ruhigere Listen */
+  .feld,.paket,.quelle,.einladung{min-height:56px}
+  .feld:hover,.paket:hover,.quelle:hover{background:#fafbfb}
+  .feld .qt,.feld .ct,.paket .pq,.kpi .val,.standkarte .wert{font-variant-numeric:tabular-nums}
+
+  /* Antwortflächen ganzflächig treffen */
+  .opt{min-height:56px;align-items:center}
+  .opt:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .opt .ltr{transition:background .12s,color .12s}
+
+  /* Fehlerzahl: Kreuz klein und grau davor statt groß dahinter */
+
+  /* Breite Bildschirme wirklich nutzen */
+  @media(min-width:1400px){
+    .wrap{max-width:1440px;padding-left:40px;padding-right:40px}
+    .lead,.stem{max-width:740px}
+    .modes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+}
+
+@media print{header,nav,.qfoot,.exambar,.navi,.sprung{display:none}}
 </style>
 </head>
 <body>
