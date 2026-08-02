@@ -11,7 +11,21 @@ testtrainer-antworten-*.csv
 # Werkzeuge
 node_modules/
 package-lock.json
+
+# Bildschirmfotos und Zwischenbilder, aber nicht die App-Symbole
 *.png
+!icon-*.png
+!apple-touch-icon.png
 
 # Betriebssystem
 .DS_Store
+
+# Nicht ins oeffentliche Verzeichnis: Pruefungsunterlagen und Fragenbestand.
+# Die Fragen liegen in Supabase, die PDFs liegen lokal unter
+# "Test Trainer/archiv-offline" und im Cloudspeicher des Projekts.
+musteraufgaben/
+fragenpool.js
+fragenpool_fr.js
+Testtrainer.html
+Testtrainer_standalone.html
+neue_fragen*.json
