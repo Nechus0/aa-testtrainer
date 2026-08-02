@@ -65,6 +65,8 @@ main{padding-bottom:110px} .view{display:none} .view.on{display:block}
 .sec-h .note{margin-left:auto;font-size:13.5px;color:var(--muted-2)}
 .grid{display:grid;gap:20px} .g3{grid-template-columns:repeat(3,1fr)}
 .g4{grid-template-columns:repeat(4,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+.grid>*{min-width:0}
+.tabelle{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .card{background:var(--paper);border:1px solid var(--line);border-radius:3px}
 .card.pad{padding:26px 28px}
 .kpi{padding:24px 26px 26px}
@@ -224,9 +226,9 @@ label.fld{display:flex;flex-direction:column;gap:8px;font-size:12px;letter-spaci
 /* Quellen */
 .quelle{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line-soft)}
 .quelle:last-child{border-bottom:0}
-.quelle .t{flex:1;min-width:0}
+.quelle .t{flex:1 1 0;min-width:0;max-width:100%}
 .quelle .t b{display:block;font-weight:600;font-size:15.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.quelle .t span{font-size:12.5px;color:var(--muted-2)}
+.quelle .t span{display:block;font-size:12.5px;color:var(--muted-2);overflow-wrap:anywhere}
 .quelle .akt{display:flex;gap:8px;flex:none}
 .punkt{width:9px;height:9px;border-radius:50%;flex:none}
 .punkt.ja{background:var(--ok)} .punkt.nein{background:var(--line-strong,#c4cad2);border:1px solid var(--line)}

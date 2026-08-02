@@ -697,10 +697,10 @@ function weak(){
 function sessionsListe(){
   const rows=S.sessions.slice(-9).reverse();
   $('#sessions').innerHTML = rows.length
-    ? `<table><thead><tr><th style="width:66px">Datum</th><th>Durchgang</th><th style="width:76px">Ergebnis</th><th style="width:66px">Zeit</th></tr></thead><tbody>${
+    ? `<div class="tabelle"><table style="min-width:300px"><thead><tr><th style="width:60px">Datum</th><th>Durchgang</th><th style="width:76px">Ergebnis</th><th style="width:62px">Zeit</th></tr></thead><tbody>${
         rows.map(s=>`<tr><td class="mute tnum">${datumKurz(s.datum)}</td><td>${esc(s.titel)}</td>
         <td class="tnum" style="font-weight:700;color:${s.quote>=70?'var(--ok)':s.quote>=50?'var(--gold)':'var(--bad)'}">${s.richtig}/${s.n}</td>
-        <td class="tnum mute">${mmss(s.dauer)}</td></tr>`).join('')}</tbody></table>`
+        <td class="tnum mute">${mmss(s.dauer)}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="empty">Noch kein Durchgang abgeschlossen.</div>';
 }
 
@@ -1309,7 +1309,7 @@ async function nutzerlisten(){
   if(error){ $('#nu-liste').innerHTML=`<div class="empty">${esc(fehlertext(error))}</div>`; }
   else {
     $('#nu-note').textContent = nu.length + (nu.length===1?' Konto':' Konten');
-    $('#nu-liste').innerHTML = nu.length ? `<table><thead><tr>
+    $('#nu-liste').innerHTML = nu.length ? `<div class="tabelle"><table style="min-width:620px"><thead><tr>
         <th>Konto</th><th style="width:130px">Rolle</th><th style="width:120px">Status</th>
         <th style="width:110px">Aktivität</th><th style="width:190px"></th></tr></thead><tbody>${
       nu.map(u=>`<tr>
@@ -1325,7 +1325,7 @@ async function nutzerlisten(){
         <td style="text-align:right"><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
           <button class="btn ghost sm" data-pw="${u.id}" data-mail="${esc(u.email)}">Passwort</button>
           ${u.id===PROFIL.id?'':`<button class="btn ghost sm gefahr" data-del="${u.id}" data-mail="${esc(u.email)}">Löschen</button>`}
-        </div></td></tr>`).join('')}</tbody></table>`
+        </div></td></tr>`).join('')}</tbody></table></div>`
       : '<div class="empty">Noch kein Konto angelegt.</div>';
 
     $$('#nu-liste [data-rolle]').forEach(s=>s.onchange=async ()=>{
@@ -1342,13 +1342,13 @@ async function nutzerlisten(){
   }
 
   const {data:ei} = await sb.from('einladung').select('*').is('eingeloest_am', null).order('erstellt_am', {ascending:false});
-  $('#ei-liste').innerHTML = (ei&&ei.length) ? `<table><thead><tr>
+  $('#ei-liste').innerHTML = (ei&&ei.length) ? `<div class="tabelle"><table style="min-width:660px"><thead><tr>
       <th>Code</th><th style="width:150px">Gebunden an</th><th style="width:110px">Rolle</th>
       <th style="width:110px">Gültig bis</th><th style="width:170px"></th></tr></thead><tbody>${
     ei.map(e=>{
       const abgelaufen = new Date(e.gueltig_bis) < new Date();
       return `<tr${abgelaufen?' style="opacity:.5"':''}>
-        <td class="xs" style="font-family:var(--mono);word-break:break-all">${esc(e.token)}</td>
+        <td class="xs" style="font-family:var(--mono);white-space:nowrap">${esc(e.token)}</td>
         <td class="xs">${esc(e.email||'—')}</td>
         <td class="xs">${e.rolle==='admin'?'Administrator':'Nutzer'}</td>
         <td class="xs tnum">${datumLang(e.gueltig_bis)}${abgelaufen?' <span style="color:var(--bad)">abgelaufen</span>':''}</td>
@@ -1356,7 +1356,7 @@ async function nutzerlisten(){
           <button class="btn ghost sm" data-kop="${esc(e.token)}">Link</button>
           <button class="btn ghost sm gefahr" data-eiweg="${esc(e.token)}">Zurückziehen</button>
         </div></td></tr>`;
-    }).join('')}</tbody></table>`
+    }).join('')}</tbody></table></div>`
     : '<div class="empty">Keine offene Einladung.</div>';
 
   $$('#ei-liste [data-kop]').forEach(b=>b.onclick=async ()=>{
