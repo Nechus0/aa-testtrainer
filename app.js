@@ -6,8 +6,11 @@
 const SB_URL = 'https://xuybdwxbyfdlvydspfgq.supabase.co';
 const SB_KEY = 'sb_publishable_e5iNDQQqMvpH2TFWUiUvbQ_rWQqHnBk';
 const sb = window.supabase.createClient(SB_URL, SB_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
 });
+/* Kommt jemand ueber einen Wiederherstellungslink, wird die Anmeldung daraus
+   uebernommen; der Hinweis fuehrt direkt zur Passwortvergabe. */
+const WIEDERHERSTELLUNG = /type=recovery/.test(location.hash);
 
 /* ---------- Fachliche Konstanten ---------- */
 const KAT = {
@@ -1559,8 +1562,14 @@ async function starten(){
   sb.rpc('aktiv_melden').then(()=>{}, ()=>{});
 
   $('#laden').classList.add('weg');
-  go('dash');
   renderMenu(); renderFrMenu();
+  if(WIEDERHERSTELLUNG){
+    history.replaceState(null, '', location.pathname);
+    go('konto');
+    toast('Bitte jetzt ein neues Passwort vergeben.');
+  } else {
+    go('dash');
+  }
   setInterval(countdown, 60000);
 }
 
