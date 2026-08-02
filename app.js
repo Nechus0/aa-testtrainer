@@ -524,10 +524,10 @@ function schaleBauen(){
 /* ---------- Countdown ---------- */
 function countdown(){
   const t=Math.max(0, PRUEFUNG-new Date());
-  const d=Math.floor(t/864e5), h=Math.floor(t/36e5)%24;
+  const d=Math.ceil(t/864e5);
   const n=$('#cd-n'); if(!n) return;
   n.textContent = t? d : 0;
-  $('#cd-u').textContent = t? (d===1?'Tag':'Tage')+' und '+h+' Std' : 'Tage';
+  $('#cd-u').textContent = t? (d===1?'Tag':'Tage') : 'Tage';
 }
 
 /* ---------- Router ---------- */
