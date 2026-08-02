@@ -316,17 +316,42 @@ async function sichern(sess, neueAntworten){
 /* =====================================================================
    GERÜST DER ANSICHTEN
    ===================================================================== */
+/* Oben stehen die Übungsbereiche, alles Verwaltende liegt im Klappmenü. */
+const HAUPT = [['dash','Dashboard'], ['train','Fachtests'], ['fr','Französisch'],
+               ['archiv','Fehlerarchiv'], ['pool','Fragenpool']];
+const menuPunkte = ()=> istAdmin()
+  ? [['konto','Konto','Zugang und Installation'], null,
+     ['quellen','Quellen','Grundlage der Fragen'], ['nutzer','Nutzer','Konten und Einladungen']]
+  : [['konto','Konto','Zugang und Installation']];
+
 function navBauen(){
-  const punkte = [
-    ['dash','Dashboard'], ['train','Fachtests'], ['fr','Französisch'],
-    ['archiv','Fehlerarchiv'], ['pool','Fragenpool']
-  ];
-  if(istAdmin()) punkte.push(['quellen','Quellen'], ['nutzer','Nutzer']);
-  punkte.push(['konto','Konto']);
-  $('#nav').innerHTML = punkte.map(([v,t])=>
-    `<button data-v="${v}" class="${v===ANSICHT?'on':''}${(v==='quellen'||v==='nutzer')?' admin':''}">${t}</button>`).join('');
-  $$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+  const imMenu = menuPunkte().filter(Boolean).some(p=>p[0]===ANSICHT);
+  $('#nav').innerHTML = HAUPT.map(([v,t])=>
+      `<button data-v="${v}" class="${v===ANSICHT?'on':''}">${t}</button>`).join('')
+    + `<button class="mehr${imMenu?' on':''}" id="nav-mehr" aria-haspopup="true" aria-expanded="false">${
+        istAdmin()?'Verwaltung':'Konto'}<span class="pfeil">▼</span></button>`;
+  $('#navpop').innerHTML = (istAdmin()? '<div class="kopfzeile">Verwaltung</div>':'')
+    + menuPunkte().map(p=> p===null ? '<div class="trenner"></div>'
+        : `<button data-v="${p[0]}" class="${p[0]===ANSICHT?'on':''}">${p[1]}<i>${p[2]}</i></button>`).join('');
+  $$('#nav button[data-v]').forEach(b=>b.onclick=()=>{ menuZu(); go(b.dataset.v); });
+  $$('#navpop button').forEach(b=>b.onclick=()=>{ menuZu(); go(b.dataset.v); });
+  $('#nav-mehr').onclick = (e)=>{ e.stopPropagation(); menuUm(); };
 }
+function menuZu(){
+  $('#navpop').classList.remove('offen');
+  const b=$('#nav-mehr'); if(b){ b.classList.remove('offen'); b.setAttribute('aria-expanded','false'); }
+}
+function menuUm(){
+  const p=$('#navpop'), b=$('#nav-mehr');
+  const auf = !p.classList.contains('offen');
+  p.classList.toggle('offen', auf); b.classList.toggle('offen', auf);
+  b.setAttribute('aria-expanded', auf?'true':'false');
+}
+document.addEventListener('click', (e)=>{
+  const p=$('#navpop');
+  if(p && p.classList.contains('offen') && !p.contains(e.target)) menuZu();
+});
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') menuZu(); });
 
 function schaleBauen(){
   $('#v-dash').innerHTML = `
@@ -460,7 +485,11 @@ function schaleBauen(){
       <div class="card pad" style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:26px">
         <label class="fld" style="flex:1;min-width:220px">Suche<input type="search" id="qu-suche" placeholder="Titel oder Dateiname"></label>
         <label class="fld" style="flex:1;min-width:170px">Sachgebiet<select id="qu-kat"></select></label>
-        <label class="fld" style="flex:1;min-width:150px">Datei<select id="qu-datei">
+        <label class="fld" style="flex:1;min-width:150px">Einstufung<select id="qu-stufe">
+          <option value="">alle</option><option value="amtlich">Amtlich</option>
+          <option value="behoerde">Öffentlich</option><option value="wissenschaft">Wissenschaft</option>
+          <option value="kommerziell">Kommerziell</option><option value="sonstige">Ungeprüft</option></select></label>
+        <label class="fld" style="flex:1;min-width:130px">Datei<select id="qu-datei">
           <option value="">alle</option><option value="ja">hochgeladen</option><option value="nein">fehlt</option></select></label>
         <button class="btn sm" id="qu-neu">Quelle hinzufügen</button>
       </div>
@@ -522,7 +551,7 @@ function countdown(){
 /* ---------- Router ---------- */
 function go(v){
   ANSICHT=v;
-  $$('#nav button').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
+  navBauen();
   $$('.view').forEach(s=>s.classList.toggle('on', s.id==='v-'+v));
   window.scrollTo({top:0});
   if(v==='dash') renderDash();
@@ -1138,6 +1167,14 @@ function poolList(){
    ===================================================================== */
 let QU_KATS = [], QU_ALLE = [];
 
+const STUFE = {
+  amtlich:      {kurz:'Amtlich',       lang:'Amtlicher Text – verbindliche Fassung'},
+  behoerde:     {kurz:'Öffentlich',    lang:'Behörde oder Verfassungsorgan – redaktionell geprüft'},
+  wissenschaft: {kurz:'Wissenschaft',  lang:'Wissenschaftlicher Verlag oder Forschungsinstitut'},
+  kommerziell:  {kurz:'Kommerziell',   lang:'Kommerzieller Anbieter – nicht als Lernquelle verwenden'},
+  sonstige:     {kurz:'Ungeprüft',     lang:'Herkunft nicht eingeordnet'}
+};
+
 async function ladeQuellen(){
   const [{data:kats}, {data:qs}] = await Promise.all([
     sb.from('quellenkategorie').select('schluessel,bezeichnung,reihenfolge').order('reihenfolge'),
@@ -1154,38 +1191,87 @@ async function renderQuellen(){
   if(ks.options.length<=1){
     ks.innerHTML='<option value="">alle</option>'+QU_KATS.map(k=>`<option value="${esc(k.schluessel)}">${esc(k.bezeichnung)}</option>`).join('');
     ks.onchange=quellenListe; $('#qu-datei').onchange=quellenListe; $('#qu-suche').oninput=quellenListe;
+    $('#qu-stufe').onchange=quellenListe;
     $('#qu-neu').onclick=()=>quelleBearbeiten(null);
   }
   quellenListe();
 }
 
+let QU_OFFEN = new Set();          // aufgeklappte Sachgebiete merken
+
+function quellenZeile(q){
+  const st = STUFE[q.einstufung] || STUFE.sonstige;
+  return `<div class="quelle">
+    <span class="punkt ${q.vorhanden?'ja':'nein'}" title="${q.vorhanden?'Datei im Cloudspeicher':'Datei fehlt'}"></span>
+    <span class="t">
+      <b>${esc(q.titel)}</b>
+      <span class="herkunft">
+        <span class="stufe ${esc(q.einstufung||'sonstige')}" title="${esc(st.lang)}">${esc(st.kurz)}</span>
+        <span class="geber">${esc(q.herausgeber||'Herkunft nicht vermerkt')}</span>
+        ${q.herkunft?`<span class="fund">${esc(q.herkunft)}</span>`:''}
+      </span>
+      <span class="datei">${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${q.vorhanden?'':' · Datei fehlt'}</span>
+    </span>
+    <span class="akt">
+      ${q.vorhanden
+        ? `<button class="btn ghost sm" data-lade="${q.id}">Öffnen</button>`
+        : `<button class="btn ghost sm" data-hoch="${q.id}">Hochladen</button>`}
+      <button class="btn ghost sm" data-bearb="${q.id}">Bearbeiten</button>
+      <button class="btn ghost sm gefahr" data-weg="${q.id}">Löschen</button>
+    </span>
+  </div>`;
+}
+
 function quellenListe(){
   const s=$('#qu-suche').value.toLowerCase().trim(), k=$('#qu-kat').value, d=$('#qu-datei').value;
-  let r=QU_ALLE.filter(q=>(!k||q.kategorie===k)
+  const e=$('#qu-stufe')? $('#qu-stufe').value : '';
+  const gefiltert = !!(s||k||d||e);
+  const r=QU_ALLE.filter(q=>(!k||q.kategorie===k)
+    && (!e||q.einstufung===e)
     && (!d || (d==='ja'? q.vorhanden : !q.vorhanden))
-    && (!s || (q.titel+' '+q.dateiname+' '+(q.herkunft||'')).toLowerCase().includes(s)));
+    && (!s || (q.titel+' '+q.dateiname+' '+(q.herausgeber||'')+' '+(q.herkunft||'')).toLowerCase().includes(s)));
+
   const da=QU_ALLE.filter(q=>q.vorhanden).length;
   const gb=QU_ALLE.reduce((a,q)=>a+(q.groesse||0),0);
-  $('#qu-stat').innerHTML = `<b style="color:var(--ink)">${QU_ALLE.length} Quellen</b> in ${QU_KATS.length} Sachgebieten · ${da} Dateien im Cloudspeicher, ${QU_ALLE.length-da} noch nicht hochgeladen · zusammen ${mb(gb)}`;
+  const zaehl = Object.entries(QU_ALLE.reduce((m,q)=>{ m[q.einstufung||'sonstige']=(m[q.einstufung||'sonstige']||0)+1; return m; },{}));
+  $('#qu-stat').innerHTML =
+    `<b style="color:var(--ink)">${QU_ALLE.length} Quellen</b> in ${QU_KATS.length} Sachgebieten · ${da} im Cloudspeicher`
+    + (QU_ALLE.length-da? `, <b style="color:var(--gold)">${QU_ALLE.length-da} ohne Datei</b>`:'')
+    + ` · zusammen ${mb(gb)}`
+    + `<div class="herkunft" style="margin-top:12px">${zaehl
+        .sort((a,b)=>b[1]-a[1])
+        .map(([s2,n])=>`<span class="stufe ${esc(s2)}" title="${esc((STUFE[s2]||STUFE.sonstige).lang)}">${esc((STUFE[s2]||STUFE.sonstige).kurz)} ${n}</span>`).join('')}</div>`
+    + (gefiltert? `<div style="margin-top:12px">${r.length} Treffer · <button class="link" id="qu-frei" style="font-size:14px">Filter zurücksetzen</button></div>`:'');
 
-  const gruppen = QU_KATS.map(k=>({k, items:r.filter(q=>q.kategorie===k.schluessel)})).filter(g=>g.items.length);
-  $('#qu-liste').innerHTML = gruppen.length ? gruppen.map(g=>`
-    <div class="sec" style="margin-top:0;margin-bottom:34px">
-      <div class="sec-h"><h2>${esc(g.k.bezeichnung)}</h2>
-        <span class="note">${g.items.length} ${g.items.length===1?'Quelle':'Quellen'} · ${g.items.filter(q=>q.vorhanden).length} hochgeladen</span></div>
-      <div class="card">${g.items.map(q=>`
-        <div class="quelle">
-          <span class="punkt ${q.vorhanden?'ja':'nein'}" title="${q.vorhanden?'Datei im Cloudspeicher':'Datei fehlt'}"></span>
-          <span class="t"><b>${esc(q.titel)}</b><span>${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${q.herkunft?' · '+esc(q.herkunft):''}</span></span>
-          <span class="akt">
-            ${q.vorhanden?`<button class="btn ghost sm" data-lade="${q.id}">Öffnen</button>`:''}
-            <button class="btn ghost sm" data-hoch="${q.id}">${q.vorhanden?'Ersetzen':'Hochladen'}</button>
-            <button class="btn ghost sm" data-bearb="${q.id}">Bearbeiten</button>
-            <button class="btn ghost sm gefahr" data-weg="${q.id}">Löschen</button>
-          </span>
-        </div>`).join('')}</div>
-    </div>`).join('') : '<div class="card"><div class="empty">Keine Quelle passt zu diesen Filtern.</div></div>';
+  const gruppen = QU_KATS.map(kat=>({kat, items:r.filter(q=>q.kategorie===kat.schluessel)})).filter(g=>g.items.length);
+  $('#qu-liste').innerHTML = gruppen.length ? gruppen.map(g=>{
+      const fehlt = g.items.filter(q=>!q.vorhanden).length;
+      const auf = gefiltert || QU_OFFEN.has(g.kat.schluessel);
+      return `<details class="gebiet" data-gebiet="${esc(g.kat.schluessel)}"${auf?' open':''}>
+        <summary>
+          <span class="pfeil">▶</span>
+          <span class="name">${esc(g.kat.bezeichnung)}</span>
+          ${fehlt?`<span class="fehlt">${fehlt} ohne Datei</span>`:''}
+          <span class="zahl">${g.items.length} ${g.items.length===1?'Quelle':'Quellen'}</span>
+        </summary>
+        <div>${g.items.map(quellenZeile).join('')}</div>
+      </details>`;
+    }).join('')
+    + `<div class="small mute" style="margin-top:18px;display:flex;gap:18px;flex-wrap:wrap">
+         <button class="link" id="qu-alle" style="font-size:14px">Alle aufklappen</button>
+         <button class="link" id="qu-keine" style="font-size:14px">Alle zuklappen</button></div>`
+    : '<div class="card"><div class="empty">Keine Quelle passt zu diesen Filtern.</div></div>';
 
+  $$('#qu-liste .gebiet').forEach(d2=>d2.ontoggle=()=>{
+    if(d2.open) QU_OFFEN.add(d2.dataset.gebiet); else QU_OFFEN.delete(d2.dataset.gebiet);
+  });
+  const alle=$('#qu-alle'), keine=$('#qu-keine'), frei=$('#qu-frei');
+  if(alle) alle.onclick=()=>{ QU_KATS.forEach(k2=>QU_OFFEN.add(k2.schluessel)); quellenListe(); };
+  if(keine) keine.onclick=()=>{ QU_OFFEN.clear(); quellenListe(); };
+  if(frei) frei.onclick=()=>{
+    $('#qu-suche').value=''; $('#qu-kat').value=''; $('#qu-datei').value='';
+    if($('#qu-stufe')) $('#qu-stufe').value=''; quellenListe();
+  };
   $$('#qu-liste [data-bearb]').forEach(b=>b.onclick=()=>quelleBearbeiten(QU_ALLE.find(q=>q.id===b.dataset.bearb)));
   $$('#qu-liste [data-weg]').forEach(b=>b.onclick=()=>quelleLoeschen(QU_ALLE.find(q=>q.id===b.dataset.weg)));
   $$('#qu-liste [data-hoch]').forEach(b=>b.onclick=()=>quelleHochladen(QU_ALLE.find(q=>q.id===b.dataset.hoch)));
@@ -1206,13 +1292,19 @@ function dialog(inhalt){
 function quelleBearbeiten(q){
   const neu=!q;
   const d=dialog(`
-    <h2 style="margin-bottom:20px">${neu?'Quelle hinzufügen':'Quelle bearbeiten'}</h2>
+    <h2 style="margin-bottom:6px">${neu?'Quelle hinzufügen':'Quelle bearbeiten'}</h2>
+    <p class="small mute" style="margin-bottom:20px">Herausgeber und Einstufung machen sichtbar, wie belastbar eine Quelle ist.</p>
     <div style="display:flex;flex-direction:column;gap:16px">
       <label class="fld">Titel<input id="d-titel" value="${esc(q?q.titel:'')}"></label>
       <label class="fld">Sachgebiet<select id="d-kat">${QU_KATS.map(k=>`<option value="${esc(k.schluessel)}" ${q&&q.kategorie===k.schluessel?'selected':''}>${esc(k.bezeichnung)}</option>`).join('')}</select></label>
+      <label class="fld">Herausgeber<input id="d-geber" value="${esc(q&&q.herausgeber?q.herausgeber:'')}" placeholder="z. B. Bundeszentrale für politische Bildung"></label>
+      <label class="fld">Einstufung<select id="d-stufe">${Object.entries(STUFE).map(([k,v])=>
+        `<option value="${k}" ${q&&(q.einstufung||'sonstige')===k?'selected':''}>${esc(v.kurz)} – ${esc(v.lang)}</option>`).join('')}</select></label>
+      <label class="fld">Fundstelle<input id="d-herkunft" value="${esc(q&&q.herkunft?q.herkunft:'')}" placeholder="z. B. Informationen zur politischen Bildung 345"></label>
       <label class="fld">Dateiname<input id="d-datei" value="${esc(q?q.dateiname:'')}" spellcheck="false"></label>
-      <label class="fld">Herkunft<input id="d-herkunft" value="${esc(q&&q.herkunft?q.herkunft:'')}" placeholder="z. B. bpb, IzpB 345"></label>
       <label class="fld">Bemerkung<textarea id="d-bem" rows="2">${esc(q&&q.bemerkung?q.bemerkung:'')}</textarea></label>
+      ${q&&q.vorhanden?`<div class="small mute">Datei liegt im Cloudspeicher (${mb(q.groesse)}).
+        <button class="link" id="d-ersetzen" style="font-size:14px">Durch neue Datei ersetzen</button></div>`:''}
       <div id="d-fehler"></div>
       <div style="display:flex;gap:12px;justify-content:flex-end">
         <button class="btn ghost" id="d-ab">Abbrechen</button>
@@ -1220,10 +1312,14 @@ function quelleBearbeiten(q){
       </div>
     </div>`);
   $('#d-ab').onclick=()=>d.remove();
+  const ers=$('#d-ersetzen');
+  if(ers) ers.onclick=()=>{ d.remove(); quelleHochladen(q); };
   $('#d-ok').onclick=async ()=>{
     const titel=$('#d-titel').value.trim(), datei=$('#d-datei').value.trim();
     if(!titel||!datei){ $('#d-fehler').innerHTML='<div class="hinweis fehler">Titel und Dateiname sind Pflicht.</div>'; return; }
     const satz={kategorie:$('#d-kat').value, titel, dateiname:datei,
+                herausgeber:$('#d-geber').value.trim()||'Herkunft nicht vermerkt',
+                einstufung:$('#d-stufe').value,
                 herkunft:$('#d-herkunft').value.trim()||null, bemerkung:$('#d-bem').value.trim()||null};
     const {error} = neu ? await sb.from('quelle').insert(satz)
                         : await sb.from('quelle').update(satz).eq('id', q.id);
@@ -1312,23 +1408,26 @@ async function nutzerlisten(){
   if(error){ $('#nu-liste').innerHTML=`<div class="empty">${esc(fehlertext(error))}</div>`; }
   else {
     $('#nu-note').textContent = nu.length + (nu.length===1?' Konto':' Konten');
-    $('#nu-liste').innerHTML = nu.length ? `<div class="tabelle"><table style="min-width:620px"><thead><tr>
-        <th>Konto</th><th style="width:130px">Rolle</th><th style="width:120px">Status</th>
-        <th style="width:110px">Aktivität</th><th style="width:190px"></th></tr></thead><tbody>${
-      nu.map(u=>`<tr>
-        <td><b>${esc(u.name||'ohne Namen')}</b><br><span class="xs mute">${esc(u.email)}</span></td>
-        <td><select data-rolle="${u.id}" style="padding:7px 9px;font-size:14px">
-              <option value="nutzer" ${u.rolle==='nutzer'?'selected':''}>Nutzer</option>
-              <option value="admin" ${u.rolle==='admin'?'selected':''}>Administrator</option></select></td>
-        <td><select data-status="${u.id}" style="padding:7px 9px;font-size:14px">
-              <option value="aktiv" ${u.status==='aktiv'?'selected':''}>aktiv</option>
-              <option value="wartend" ${u.status==='wartend'?'selected':''}>wartend</option>
-              <option value="gesperrt" ${u.status==='gesperrt'?'selected':''}>gesperrt</option></select></td>
-        <td class="xs mute tnum">${u.durchgaenge} Durchg.<br>${u.antworten} Antw.${u.quote!=null?' · '+u.quote+' %':''}</td>
-        <td style="text-align:right"><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+    $('#nu-liste').innerHTML = nu.length ? nu.map(u=>`
+      <div class="konto">
+        <span class="wer"><b>${esc(u.name||'ohne Namen')}${u.id===PROFIL.id?' · du':''}</b>
+          <span>${esc(u.email)}</span></span>
+        <span class="wahl">
+          <label>Rolle<select data-rolle="${u.id}">
+            <option value="nutzer" ${u.rolle==='nutzer'?'selected':''}>Nutzer</option>
+            <option value="admin" ${u.rolle==='admin'?'selected':''}>Administrator</option></select></label>
+          <label>Status<select data-status="${u.id}">
+            <option value="aktiv" ${u.status==='aktiv'?'selected':''}>aktiv</option>
+            <option value="wartend" ${u.status==='wartend'?'selected':''}>wartend</option>
+            <option value="gesperrt" ${u.status==='gesperrt'?'selected':''}>gesperrt</option></select></label>
+        </span>
+        <span class="zahlen">${u.durchgaenge} ${u.durchgaenge===1?'Durchgang':'Durchgänge'}<br>
+          ${u.antworten} ${u.antworten===1?'Antwort':'Antworten'}${u.quote!=null?' · '+u.quote+' %':''}</span>
+        <span class="akt">
           <button class="btn ghost sm" data-pw="${u.id}" data-mail="${esc(u.email)}">Passwort</button>
           ${u.id===PROFIL.id?'':`<button class="btn ghost sm gefahr" data-del="${u.id}" data-mail="${esc(u.email)}">Löschen</button>`}
-        </div></td></tr>`).join('')}</tbody></table></div>`
+        </span>
+      </div>`).join('')
       : '<div class="empty">Noch kein Konto angelegt.</div>';
 
     $$('#nu-liste [data-rolle]').forEach(s=>s.onchange=async ()=>{
@@ -1345,21 +1444,18 @@ async function nutzerlisten(){
   }
 
   const {data:ei} = await sb.from('einladung').select('*').is('eingeloest_am', null).order('erstellt_am', {ascending:false});
-  $('#ei-liste').innerHTML = (ei&&ei.length) ? `<div class="tabelle"><table style="min-width:660px"><thead><tr>
-      <th>Code</th><th style="width:150px">Gebunden an</th><th style="width:110px">Rolle</th>
-      <th style="width:110px">Gültig bis</th><th style="width:170px"></th></tr></thead><tbody>${
-    ei.map(e=>{
+  $('#ei-liste').innerHTML = (ei&&ei.length) ? ei.map(e=>{
       const abgelaufen = new Date(e.gueltig_bis) < new Date();
-      return `<tr${abgelaufen?' style="opacity:.5"':''}>
-        <td class="xs" style="font-family:var(--mono);white-space:nowrap">${esc(e.token)}</td>
-        <td class="xs">${esc(e.email||'—')}</td>
-        <td class="xs">${e.rolle==='admin'?'Administrator':'Nutzer'}</td>
-        <td class="xs tnum">${datumLang(e.gueltig_bis)}${abgelaufen?' <span style="color:var(--bad)">abgelaufen</span>':''}</td>
-        <td style="text-align:right"><div style="display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn ghost sm" data-kop="${esc(e.token)}">Link</button>
+      return `<div class="einladung${abgelaufen?' alt':''}">
+        <span class="code">${esc(e.token)}</span>
+        <span class="wem">${esc(e.email||'an niemanden gebunden')} · ${e.rolle==='admin'?'Administrator':'Nutzer'}
+          · ${abgelaufen?'<b style="color:var(--bad)">abgelaufen am '+datumLang(e.gueltig_bis)+'</b>':'gültig bis '+datumLang(e.gueltig_bis)}</span>
+        <span class="akt">
+          <button class="btn ghost sm" data-kop="${esc(e.token)}">Link kopieren</button>
           <button class="btn ghost sm gefahr" data-eiweg="${esc(e.token)}">Zurückziehen</button>
-        </div></td></tr>`;
-    }).join('')}</tbody></table></div>`
+        </span>
+      </div>`;
+    }).join('')
     : '<div class="empty">Keine offene Einladung.</div>';
 
   $$('#ei-liste [data-kop]').forEach(b=>b.onclick=async ()=>{
@@ -1421,10 +1517,41 @@ async function nutzerLoeschen(id, mail){
    ===================================================================== */
 function renderKonto(){
   const offen = warteschlange().length;
-  const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const schritte = [
+    ['Diese Adresse auf dem iPhone in <b>Safari</b> öffnen',
+     'Nur Safari kann ein Symbol anlegen – nicht Chrome und nicht die Vorschau innerhalb einer anderen App.'],
+    ['Unten auf <b>Teilen</b> tippen',
+     'Das Quadrat mit dem Pfeil nach oben, in der Leiste am unteren Bildschirmrand.'],
+    ['<b>Zum Home-Bildschirm</b> wählen',
+     'In der Liste etwas nach unten wischen. Danach oben rechts auf <b>Hinzufügen</b> tippen.'],
+    ['Fertig',
+     'Der Testtrainer liegt nun als Symbol auf dem Home-Bildschirm und startet ohne Adressleiste – wie eine App.']];
+
   $('#konto-inhalt').innerHTML = `
     <div class="sec" style="margin-top:0">
+      <div class="sec-h"><h2>Auf dem iPhone installieren</h2><span class="note">kostenlos, ohne App Store</span></div>
+      ${standalone
+        ? '<div class="hinweis gut"><b>Erledigt.</b> Der Testtrainer läuft bereits als installierte App.</div>'
+        : `<div class="card pad">
+            <p style="font-size:17px;margin-bottom:6px"><b>Der Testtrainer lässt sich wie eine App auf dem Telefon ablegen.</b></p>
+            <p class="small mute" style="margin-bottom:22px">Kein App Store, keine Installation, keine Kosten – der Browser legt lediglich ein Symbol auf den Home-Bildschirm.</p>
+            <ol style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:16px">
+              ${schritte.map(([t,e])=>`<li style="padding-left:4px">
+                 <div style="font-size:16px;color:var(--ink)">${t}</div>
+                 <div class="small mute" style="margin-top:4px">${e}</div></li>`).join('')}
+            </ol>
+            <div class="hinweis" style="margin:24px 0 0">Die Anmeldung bleibt erhalten. Fragen werden zwischengespeichert und
+              stehen auch ohne Netz zur Verfügung; Ergebnisse werden nachgereicht, sobald wieder Netz da ist.</div>
+            <div class="small mute" style="margin-top:18px">Adresse zum Weitergeben:<br>
+              <span style="font-family:var(--mono);font-size:13px;color:var(--ink);overflow-wrap:anywhere">${esc(location.origin+location.pathname)}</span>
+              <button class="link" id="k-adresse" style="font-size:13px;margin-left:10px">kopieren</button></div>
+            <div class="small mute" style="margin-top:14px"><b>Android:</b> im Browsermenü (drei Punkte oben rechts)
+              <b>App installieren</b> oder <b>Zum Startbildschirm hinzufügen</b> wählen.</div>
+          </div>`}
+    </div>
+
+    <div class="sec">
       <div class="sec-h"><h2>Zugang</h2></div>
       <div class="card pad">
         <div style="display:flex;flex-direction:column;gap:16px;max-width:420px">
@@ -1451,18 +1578,6 @@ function renderKonto(){
     </div>
 
     <div class="sec">
-      <div class="sec-h"><h2>Auf dem Telefon installieren</h2></div>
-      ${standalone
-        ? '<div class="hinweis gut">Der Testtrainer läuft bereits als installierte App.</div>'
-        : `<div class="card pad small">
-            ${iOS
-              ? '<b>iPhone:</b> unten in Safari auf <b>Teilen</b> tippen, dann <b>Zum Home-Bildschirm</b>. Danach startet der Testtrainer wie eine App – ohne Adressleiste, mit eigenem Symbol.'
-              : '<b>Android:</b> im Browsermenü <b>App installieren</b> oder <b>Zum Startbildschirm hinzufügen</b> wählen.'}
-            <div class="mute" style="margin-top:12px">Die Anmeldung bleibt erhalten; Fragen werden zwischengespeichert und stehen auch ohne Netz zur Verfügung.</div>
-          </div>`}
-    </div>
-
-    <div class="sec">
       <div class="sec-h"><h2>Bestand</h2></div>
       <p class="small" id="k-pool"></p>
     </div>
@@ -1476,6 +1591,11 @@ function renderKonto(){
   $('#k-pool').innerHTML = `<b>${ALLES.length} Fragen</b> in ${bl.length} Abschnitten · `
     + ALLE.map(k=>KAT[k].kurz+' '+F.filter(q=>q.kategorie===k).length).join(' · ') + ' · Französisch '+FR.length;
 
+  const adr=$('#k-adresse');
+  if(adr) adr.onclick=async ()=>{
+    try{ await navigator.clipboard.writeText(location.origin+location.pathname); toast('Adresse kopiert.'); }
+    catch(e){ prompt('Adresse:', location.origin+location.pathname); }
+  };
   $('#k-name-ok').onclick=async ()=>{
     const n=$('#k-name').value.trim();
     const {error} = await sb.from('profile').update({name:n}).eq('id', PROFIL.id);
