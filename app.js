@@ -371,17 +371,16 @@ function schaleBauen(){
     </div>
     <div class="wrap">
       <div class="sec" style="margin-top:0">
-        <div class="sec-h"><h2>Fragen des Tages</h2><span class="note" id="tag-note"></span></div>
+        <div class="sec-h"><h2>Heute</h2><span class="note" id="tag-note"></span></div>
         <div id="tagesaufgaben"></div>
       </div>
-      <div class="grid g4" id="kpis" style="margin-top:56px"></div>
       <div class="sec">
-        <div class="sec-h"><h2>Fachtests</h2><span class="note">je 25 Fragen in 10 Minuten</span></div>
-        <div class="grid g3" id="katcards"></div>
+        <div class="sec-h"><h2>Dein Stand</h2><span class="note">über den gesamten Bestand</span></div>
+        <div class="grid g4" id="kpis"></div>
       </div>
       <div class="sec">
-        <div class="sec-h"><h2>Sprachtest Französisch</h2><span class="note">60 Punkte, bestanden ab 30</span></div>
-        <div id="frcard"></div>
+        <div class="sec-h"><h2>Nach Prüfungsteil</h2><span class="note">Trefferquote und Bearbeitungsstand</span></div>
+        <div class="grid g4" id="standkarten"></div>
       </div>
       <div class="sec">
         <div class="sec-h"><h2>Verlauf</h2><span class="note">Trefferquote je Tag</span></div>
@@ -443,7 +442,7 @@ function schaleBauen(){
       </div></div>
     </div>
     <div class="wrap">
-      <div class="sec" style="margin-top:0;margin-bottom:44px">
+      <div class="sec" style="margin-top:0;margin-bottom:40px">
         <div class="sec-h"><h2>Abdeckung des Lehrplans</h2><span class="note" id="lp-note"></span></div>
         <div id="lehrplan"></div>
       </div>
@@ -583,7 +582,7 @@ function statsFr(){
 function renderDash(){
   countdown();
   const vn = (PROFIL?.name||'').trim().split(/\s+/)[0];
-  $('#dash-lead').textContent = (vn? vn+', d':'D')+'ein Stand in den drei Fachtests des schriftlichen Auswahlverfahrens.';
+  $('#dash-lead').textContent = (vn? vn+', d':'D')+'ein Stand in den drei Fachtests und im Sprachtest Französisch.';
   const ges=S.antworten.length, ok=S.antworten.filter(a=>a.ok).length, l=letzteJeFrage();
   const gesehen = Object.keys(l).length;
   const heutigeSess = S.sessions.filter(s=>s.datum===heute()).length;
@@ -595,26 +594,36 @@ function renderDash(){
   ];
   $('#kpis').innerHTML = kpi.map(k=>`<div class="card kpi"><div class="lab">${k[0]}</div><div class="val">${k[1]}</div><div class="sub">${k[2]}</div></div>`).join('');
 
-  $('#katcards').innerHTML = ALLE.map(k=>{
-    const s=statsKat(k), K=KAT[k];
-    const sess=S.sessions.filter(x=>x.kats.includes(k)).slice(-5);
-    const trend = sess.length>=2 ? (sess.at(-1).quote - sess[0].quote) : null;
-    return `<div class="card pad k-${k}">
-      <div class="tag">${K.kurz}</div>
-      <h3 style="margin:14px 0 22px;min-height:50px">${esc(K.name)}</h3>
-      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
-        <span style="font-size:38px;font-weight:700;letter-spacing:-.035em;color:${s.versuche?'var(--ink)':'var(--muted-2)'}" class="tnum">${s.versuche? s.quote:'–'}</span>
-        <span class="mute" style="font-size:17px">${s.versuche?'%':''}</span>
-        ${trend!==null?`<span style="margin-left:auto;font-size:14px;color:${trend>0?'var(--ok)':trend<0?'var(--bad)':'var(--muted-2)'}">${trend>0?'▲':trend<0?'▼':'▬'} ${Math.abs(trend)} Pp.</span>`:''}
-      </div>
-      <div class="meter"><i style="width:${s.versuche?s.quote:0}%"></i></div>
-      <div class="xs mute" style="margin-top:16px;display:flex;gap:20px">
-        <span><b style="color:var(--ink)" class="tnum">${s.gesehen}</b> / ${s.pool} bearbeitet</span>
-        <span><b style="color:var(--ink)" class="tnum">${s.offen}</b> offen</span>
-      </div></div>`;
-  }).join('');
+  /* Alle vier Prüfungsteile in derselben Form – Fachtests und Sprachtest gleichrangig. */
+  const fr=statsFr(), lf=fr.letzte;
+  const karten = ALLE.map(k=>{
+      const s=statsKat(k), sess=S.sessions.filter(x=>x.kats.includes(k)).slice(-5);
+      return {kls:k, marke:KAT[k].kurz, name:KAT[k].name, quote:s.versuche? s.quote:null,
+              gesehen:s.gesehen, pool:s.pool, offen:s.offen,
+              trend: sess.length>=2 ? (sess.at(-1).quote - sess[0].quote) : null,
+              fuss:'Prüfungsformat: 25 Fragen in 10 Minuten'};
+    }).concat([{kls:'franzoesisch', marke:KAT_FR.kurz, name:KAT_FR.name,
+      quote: fr.versuche? fr.quote:null, gesehen:fr.gesehen, pool:fr.pool, offen:fr.offen, trend:null,
+      fuss: lf && lf.maxPunkte===FR_META.punkte
+        ? 'Letzter Sprachtest: '+lf.punkte+' von '+FR_META.punkte+' Punkten · '+(lf.punkte>=FR_META.bestanden?'bestanden':'nicht bestanden')
+        : 'Prüfungsformat: 52 Aufgaben in 30 Minuten, bestanden ab 30 Punkten'}]);
 
-  tagesaufgaben(); frcard(); chart(); weak(); sessionsListe();
+  $('#standkarten').innerHTML = karten.map(c=>`
+    <div class="card pad standkarte k-${c.kls}">
+      <div class="tag">${esc(c.marke)}</div>
+      <h3>${esc(c.name)}</h3>
+      <div class="quotezeile">
+        ${c.quote!==null
+          ? `<span class="wert tnum">${c.quote}</span><span class="mute" style="font-size:17px">%</span>`
+          : `<span class="leer">noch keine Antwort</span>`}
+        ${c.trend!==null?`<span class="trend" style="color:${c.trend>0?'var(--ok)':c.trend<0?'var(--bad)':'var(--muted-2)'}">${c.trend>0?'▲':c.trend<0?'▼':'▬'} ${Math.abs(c.trend)} Pp.</span>`:''}
+      </div>
+      <div class="meter"><i style="width:${c.quote||0}%"></i></div>
+      <div class="xs mute zahlen"><b class="tnum">${c.gesehen}</b> / ${c.pool} bearbeitet · <b class="tnum">${c.offen}</b> offen</div>
+      <div class="xs mute fuss">${esc(c.fuss)}</div>
+    </div>`).join('');
+
+  tagesaufgaben(); chart(); weak(); sessionsListe();
 }
 
 /* ---------- Fragen des Tages ----------
@@ -669,34 +678,6 @@ function tagesaufgaben(){
       }).join('')}</div>`;
 
   $$('#tagesaufgaben [data-tag]').forEach(b=>b.onclick=()=>start(posten[+b.dataset.tag].cfg));
-}
-
-function frcard(){
-  const s=statsFr(), l=s.letzte;
-  const hoch = l && l.maxPunkte ? Math.round(l.punkte/l.maxPunkte*FR_META.punkte) : null;
-  $('#frcard').innerHTML=`<div class="card pad k-franzoesisch" style="display:flex;gap:32px;align-items:center;flex-wrap:wrap">
-    <div style="min-width:200px">
-      <div class="tag">Französisch</div>
-      ${!s.versuche? `<div class="xs mute" style="margin-top:16px"><b style="color:var(--ink)" class="tnum">0</b> / ${s.pool} bearbeitet</div>` : `
-      <div style="display:flex;align-items:baseline;gap:10px;margin:14px 0 12px">
-        <span style="font-size:38px;font-weight:700;letter-spacing:-.035em;color:var(--ink)" class="tnum">${s.quote}</span>
-        <span class="mute" style="font-size:17px">%</span>
-      </div>
-      <div class="meter"><i style="width:${s.quote}%"></i></div>
-      <div class="xs mute" style="margin-top:14px"><b style="color:var(--ink)" class="tnum">${s.gesehen}</b> / ${s.pool} bearbeitet · <b style="color:var(--ink)" class="tnum">${s.offen}</b> offen</div>`}
-    </div>
-    <div style="flex:1;min-width:240px">
-      ${l ? `<div class="small mute">Letzter Durchgang · ${esc(l.titel)}</div>
-        <div style="font-size:27px;font-weight:700;color:var(--ink);letter-spacing:-.02em;margin-top:6px" class="tnum">${l.punkte} von ${l.maxPunkte} Punkten</div>
-        ${l.maxPunkte===FR_META.punkte ? `<div class="verdict ${l.punkte>=FR_META.bestanden?'ja':'nein'}">${l.punkte>=FR_META.bestanden?'Bestanden':'Nicht bestanden'} · Grenze ${FR_META.bestanden} Punkte</div>`
-          : `<div class="small mute" style="margin-top:8px">Hochgerechnet auf den vollen Test: rund ${hoch} von ${FR_META.punkte} Punkten</div>`}`
-        : '<div class="small mute">Noch kein Sprachtest absolviert. Der vollständige Testlauf dauert 30 Minuten.</div>'}
-    </div>
-    <button class="btn ghost" id="zu-fr">Zum Trainer</button></div>`;
-  $('#zu-fr').onclick=()=>{
-    TR.bereiche=new Set(['textverstaendnis','wortschatz','grammatik']);
-    go('train');
-  };
 }
 
 function chart(){
@@ -760,9 +741,19 @@ function weak(){
       <span class="bar"><i style="width:${q}%"></i></span>
       <span class="qt" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %</span>
       <span class="ct">${v.n-v.ok} ✕</span></div>`;
-  }).join('') + (alle.length>5
-    ? `<div class="morerow"><button class="link" id="weak-more">${WEAK_ALLE?'Weniger anzeigen':'Alle '+alle.length+' Themenfelder anzeigen'}</button></div>` : '');
+  }).join('')
+    + `<div class="morerow" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+        <button class="link" id="weak-uebe">Diese Themen gezielt üben</button>
+        ${alle.length>5?`<button class="link" id="weak-more" style="margin-left:auto">${
+          WEAK_ALLE?'Weniger anzeigen':'Alle '+alle.length+' Themenfelder anzeigen'}</button>`:''}
+      </div>`;
   const b=$('#weak-more'); if(b) b.onclick=()=>{ WEAK_ALLE=!WEAK_ALLE; weak(); };
+  $('#weak-uebe').onclick=()=>{
+    TR.auswahl='schwach'; TR.zeit=false;
+    TR.bereiche=new Set(alle.slice(0,8).map(v=>v.kat==='franzoesisch'? null : v.kat).filter(Boolean));
+    if(!TR.bereiche.size) TR.bereiche=new Set(['textverstaendnis','wortschatz','grammatik']);
+    go('train');
+  };
 }
 
 function sessionsListe(){
@@ -1064,6 +1055,8 @@ function baueTeile(cfg){
                               ? frTextsatz(frTeilFragen(t), FR_TEIL[t].fragen)
                               : pick(frTeilFragen(t), FR_TEIL[t].fragen)}));
     case 'frFehler':return [{fragen:shuffle(falscheOffen(FR))}];
+    case 'fehlerAlle': return [{fragen:pick(falscheOffen(ALLES), cfg.n||9999)}];
+    case 'fehlerFeld': return [{fragen:pick(falscheOffen(ALLES).filter(q=>themenfeld(q)===cfg.feld), cfg.n||9999)}];
     case 'trainer': {
       /* Textverständnis artikelweise ziehen, damit die Lesetexte vollständig bleiben. */
       const pool=trPool();
@@ -1166,16 +1159,20 @@ function renderFrage(){
             ? `<button class="btn" id="fertig">${LAUF.ti===LAUF.teile.length-1?'Auswerten':'Nächster Teil →'}</button>`
             : `<button class="btn" id="next">Weiter</button>`}
         </div>
-        <div class="navi">
-          <div class="lab">Übersicht</div>
-          <div class="pgrid">${T.fragen.map((f,i)=>
-            `<button class="pg ${LAUF.antw[f.id]!==undefined?'done':''} ${LAUF.mark[f.id]?'mark':''} ${i===LAUF.i?'cur':''}" data-i="${i}">${i+1}</button>`).join('')}</div>
-          <div class="pglegend">
-            <span><i class="d"></i>beantwortet</span>
-            <span><i class="m"></i>markiert</span>
-            <span><i class="c"></i>aktuelle Frage</span>
-          </div>
-        </div>
+        ${(()=>{ /* Bei langen Durchgängen die Übersicht einklappen, sonst wird die Seite unbrauchbar. */
+          const raster = `<div class="pgrid">${T.fragen.map((f,i)=>
+              `<button class="pg ${LAUF.antw[f.id]!==undefined?'done':''} ${LAUF.mark[f.id]?'mark':''} ${i===LAUF.i?'cur':''}" data-i="${i}">${i+1}</button>`).join('')}</div>
+            <div class="pglegend">
+              <span><i class="d"></i>beantwortet</span>
+              <span><i class="m"></i>markiert</span>
+              <span><i class="c"></i>aktuelle Frage</span>
+            </div>`;
+          return n>60
+            ? `<details class="navi lang"><summary>Übersicht über alle ${n} Fragen · ${beantwortet} beantwortet${
+                 Object.keys(LAUF.mark).filter(id=>LAUF.mark[id]).length? ' · '+Object.keys(LAUF.mark).filter(id=>LAUF.mark[id]).length+' markiert':''}</summary>
+               <div style="padding-top:18px">${raster}</div></details>`
+            : `<div class="navi"><div class="lab">Übersicht</div>${raster}</div>`;
+        })()}
       </div>
     </div></div>`;
 
@@ -1307,25 +1304,48 @@ function renderErgebnis(alle, sess){
 /* =====================================================================
    FEHLERARCHIV
    ===================================================================== */
+let ARCHIV_OFFEN=new Set(), ARCHIV_MEHR={};
+
 function renderArchiv(){
   const fal=falscheOffen(ALLES), l=letzteJeFrage();
-  if(!fal.length){ $('#archivbox').innerHTML='<div class="card"><div class="empty">Kein offener Fehler. Entweder läuft es gut – oder es fehlt noch an Durchgängen.</div></div>'; return; }
+  if(!fal.length){
+    $('#archivbox').innerHTML='<div class="card"><div class="empty">Kein offener Fehler. Entweder läuft es gut – oder es fehlt noch an Durchgängen.</div></div>';
+    return;
+  }
+  /* Nach Themenfeld bündeln: dort sitzt die eigentliche Lücke. */
+  const feld={};
+  for(const q of fal){ const s=themenfeld(q); (feld[s]=feld[s]||{s, kat:q.kategorie, n:0}); feld[s].n++; }
+  const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,6);
+
   $('#archivbox').innerHTML=
-    `<div class="card pad" style="display:flex;align-items:center;gap:22px;margin-bottom:26px;flex-wrap:wrap">
-       <div style="font-size:19px"><b>${fal.length} Fragen</b> hast du zuletzt falsch beantwortet.</div>
-       <button class="btn" id="a-start" style="margin-left:auto">Jetzt wiederholen</button></div>`
-    + fal.map(q=>{ const g=l[q.id].gew;
-      return `<details class="rev"><summary><span class="mk w">✕</span>
-        <span><span class="tagrow"><span class="tag k-${q.kategorie}" style="font-size:11px">${katKurz(q.kategorie)}</span></span>${stemHtml(q.frage)}</span></summary>
-        <div class="body">${q.text?`<div class="artikel">${q.titel?`<h4>${esc(q.titel)}</h4>`:''}${absatz(q.text)}</div>`:''}<div class="opts">${q.optionen.map((o,j)=>
-          `<div class="opt static ${j===q.loesung?'right':(j===g?'wrong':'')}"><span class="ltr">${LTR[j]}</span><span>${esc(o)}</span></div>`).join('')}</div>
-        <div class="expl bad"><b>Richtig ist ${LTR[q.loesung]}.</b> ${esc(q.erlaeuterung)}</div>
-        <div class="srcline">${esc(q.thema||'')} · ${esc(q.block)}</div></div></details>`; }).join('');
-  $('#a-start').onclick=()=>{
-    const nurFr = fal.every(q=>q.kategorie==='franzoesisch');
-    start(nurFr ? {view:'fr', typ:'frFehler', zeit:0, titel:'Wiederholung Französisch'}
-                : {typ:'fehler', zeit:0, titel:'Wiederholung'});
-  };
+    `<div class="card pad" style="display:flex;align-items:center;gap:22px;margin-bottom:22px;flex-wrap:wrap">
+       <div style="flex:1;min-width:240px">
+         <div style="font-size:19px"><b>${fal.length} ${fal.length===1?'Frage':'Fragen'}</b> hast du zuletzt falsch beantwortet.</div>
+         <div class="small mute" style="margin-top:8px">Verteilt auf ${Object.keys(feld).length} Themenfelder.
+           Am dichtesten: ${felder.slice(0,3).map(f=>esc(f.s)+' ('+f.n+')').join(', ')}.</div>
+       </div>
+       <div style="display:flex;gap:12px;flex-wrap:wrap">
+         <button class="btn" id="a-start">${fal.length>50? '50 wiederholen' : (fal.length===1?'Wiederholen':'Alle '+fal.length+' wiederholen')}</button>
+         ${fal.length>50?`<button class="btn ghost" id="a-alle">Alle ${fal.length}</button>`:''}
+       </div></div>
+     <div class="card" style="margin-bottom:26px">
+       ${felder.map(f=>`<div class="feld k-${f.kat}">
+          <span class="sq"></span><span class="nm">${esc(f.s)}</span>
+          <span class="ct" style="width:auto">${f.n} ✕</span>
+          <span style="flex:none"><button class="btn ghost sm" data-feld="${esc(f.s)}">Üben</button></span>
+        </div>`).join('')}
+     </div>
+     <div id="archivliste"></div>`;
+
+  gruppenliste('#archivliste', fal, l, ARCHIV_OFFEN, ARCHIV_MEHR, 10, false, 'Kein offener Fehler.');
+  $$('#archivliste [data-mehr]').forEach(x=>x.onclick=()=>{
+    ARCHIV_MEHR[x.dataset.mehr]=(ARCHIV_MEHR[x.dataset.mehr]||10)+10; ARCHIV_OFFEN.add(x.dataset.mehr); renderArchiv(); });
+  $$('#archivliste [data-weniger]').forEach(x=>x.onclick=()=>{ ARCHIV_MEHR[x.dataset.weniger]=10; renderArchiv(); });
+
+  $('#a-start').onclick=()=>start({typ:'fehlerAlle', n:50, zeit:0, titel:'Wiederholung'});
+  const aa=$('#a-alle'); if(aa) aa.onclick=()=>start({typ:'fehlerAlle', zeit:0, titel:'Wiederholung · alle'});
+  $$('#archivbox [data-feld]').forEach(x=>x.onclick=()=>
+    start({typ:'fehlerFeld', feld:x.dataset.feld, zeit:0, titel:'Wiederholung · '+x.dataset.feld}));
 }
 
 /* =====================================================================
@@ -1348,47 +1368,49 @@ async function renderLehrplan(){
   const reihe=['recht','geschichte','wirtschaft','textverstaendnis','wortschatz','grammatik'];
   const sortiert=reihe.map(k=>ueb.find(u=>u.kategorie===k)).filter(Boolean);
   const felder=sortiert.reduce((a,u)=>a+u.felder,0);
-  const begonnen=sortiert.reduce((a,u)=>a+u.begonnen,0);
-  $('#lp-note').textContent = begonnen+' von '+felder+' Themenfeldern begonnen';
+  const belegt=sortiert.reduce((a,u)=>a+u.begonnen,0);
+  $('#lp-note').textContent = 'Bestand, nicht dein Fortschritt';
 
-  box.innerHTML = `<div class="grid g3">${sortiert.map(u=>{
-      const p=Math.round(u.begonnen/u.felder*100);
-      return `<div class="card pad k-${LP_KLS[u.kategorie]}">
-        <div class="tag">${esc(LP_NAME[u.kategorie])}</div>
-        <div style="display:flex;align-items:baseline;gap:10px;margin:14px 0 12px">
-          <span style="font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink)" class="tnum">${u.begonnen}</span>
-          <span class="mute" style="font-size:16px">von ${u.felder} Feldern</span>
-        </div>
-        <div class="meter"><i style="width:${p}%"></i></div>
-        <div class="xs mute" style="margin-top:14px">${u.fragen} Fragen · Ziel ${u.soll}${
-          u.erfuellt? ' · '+u.erfuellt+' Felder vollständig':''}</div>
-      </div>`;
-    }).join('')}</div>
-    <div class="card" style="margin-top:20px">
-      <div class="feld" style="border-bottom:1px solid var(--line)">
-        <span class="nm" style="font-weight:600;color:var(--ink)">Noch nicht begonnene Themenfelder</span>
-        <span class="ct" style="width:auto">${(stand||[]).filter(s=>!s.fragen).length}</span>
+  /* Kompakte Zeile je Prüfungsteil statt sechs Karten – die Seite bleibt kurz. */
+  box.innerHTML = `
+    <div class="card">
+      <div class="feld" style="border-bottom:1px solid var(--line);padding-top:18px;padding-bottom:18px">
+        <span class="nm" style="font-weight:600;color:var(--ink);font-size:16px">${belegt} von ${felder} Themenfeldern haben bereits Fragen</span>
       </div>
-      <div id="lp-liste"></div>
-      <div class="morerow"><button class="link" id="lp-mehr"></button></div>
+      ${sortiert.map(u=>{
+        const p=Math.round(u.begonnen/u.felder*100);
+        return `<div class="feld k-${LP_KLS[u.kategorie]}">
+          <span class="sq"></span>
+          <span class="nm">${esc(LP_NAME[u.kategorie])}</span>
+          <span class="bar"><i style="width:${p}%"></i></span>
+          <span class="qt tnum" style="width:70px">${u.begonnen}/${u.felder}</span>
+          <span class="ct" style="width:88px">${u.fragen} Fragen</span>
+        </div>`;
+      }).join('')}
+      <details class="lp-auf"><summary>Noch ohne Fragen: ${(stand||[]).filter(s=>!s.fragen).length} Themenfelder ansehen</summary>
+        <div id="lp-liste"></div></details>
+      <div class="feld xs mute" style="border-top:1px solid var(--line-soft);border-bottom:0">
+        <span class="nm" style="white-space:normal">Der Lehrplan beschreibt, was bis zur Prüfung im Bestand sein muss.
+          Die Zahl zeigt, für wie viele Felder es schon Fragen gibt – unabhängig davon, ob du sie bearbeitet hast.
+          Deinen eigenen Fortschritt findest du auf dem Dashboard.</span>
+      </div>
     </div>`;
 
   const offen=(stand||[]).filter(s=>!s.fragen);
   const zeichnen=()=>{
-    const zeige = LP_OFFEN ? offen : offen.slice(0,10);
+    const zeige = LP_OFFEN ? offen : offen.slice(0,12);
     $('#lp-liste').innerHTML = offen.length
       ? zeige.map(s=>`<div class="feld k-${LP_KLS[s.kategorie]}">
           <span class="sq"></span>
           <span class="nm" title="${esc(s.thema)}">${esc(s.thema)}</span>
           <span class="ct" style="width:auto;white-space:nowrap">${s.gewicht===3?'häufig':s.gewicht===2?'normal':'selten'}</span>
         </div>`).join('')
+        + (offen.length>12 ? `<div class="morerow"><button class="link" id="lp-mehr">${
+            LP_OFFEN?'Weniger anzeigen':'Alle '+offen.length+' anzeigen'}</button></div>`:'')
       : '<div class="empty">Jedes Themenfeld hat mindestens eine Frage.</div>';
-    const b=$('#lp-mehr');
-    if(offen.length>10){ b.style.display=''; b.textContent = LP_OFFEN? 'Weniger anzeigen' : 'Alle '+offen.length+' offenen Felder anzeigen'; }
-    else b.style.display='none';
+    const b=$('#lp-mehr'); if(b) b.onclick=()=>{ LP_OFFEN=!LP_OFFEN; zeichnen(); };
   };
   zeichnen();
-  $('#lp-mehr').onclick=()=>{ LP_OFFEN=!LP_OFFEN; zeichnen(); };
 }
 
 function renderPool(){
@@ -1405,22 +1427,67 @@ function renderPool(){
   if(bl.includes(alt)) bs.value=alt;
   poolList();
 }
+/* Eine Frage als aufklappbarer Eintrag. */
+function poolEintrag(q, a){
+  return `<details class="rev"><summary>
+    <span class="mk ${a?(a.ok?'r':'w'):'s'}">${a?(a.ok?'✓':'✕'):'·'}</span>
+    <span><span class="tagrow"><span class="tag k-${q.kategorie}" style="font-size:11px">${katKurz(q.kategorie)}</span></span>${stemHtml(q.frage)}</span></summary>
+    <div class="body">
+      ${q.text?`<div class="artikel">${q.titel?`<h4>${esc(q.titel)}</h4>`:''}${absatz(q.text)}</div>`:''}
+      <div class="opts">${q.optionen.map((o,j)=>
+        `<div class="opt static ${j===q.loesung?'right':(a&&j===a.gew?'wrong':'')}"><span class="ltr">${LTR[j]}</span><span>${esc(o)}</span></div>`).join('')}</div>
+      <div class="expl">${esc(q.erlaeuterung)}</div>
+      <div class="srcline">${esc(q.thema||'')} · ${esc(q.block)} · ${esc(q.id)}</div></div></details>`;
+}
+
+/* Gruppierte, seitenweise Liste – nie mehr als ein Bildschirm auf einmal. */
+const GRUPPEN = [
+  {id:'recht',       name:'Völker-, Europa- und Staatsrecht', passt:q=>q.kategorie==='recht'},
+  {id:'geschichte',  name:'Geschichte und Politik',           passt:q=>q.kategorie==='geschichte'},
+  {id:'wirtschaft',  name:'Wirtschaft',                       passt:q=>q.kategorie==='wirtschaft'},
+  {id:'franzoesisch',name:'Sprachtest Französisch',           passt:q=>q.kategorie==='franzoesisch'}
+];
+let POOL_OFFEN=new Set(), POOL_MEHR={};
+
+function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert, leer){
+  const box=$(ziel); if(!box) return;
+  const gruppen=GRUPPEN.map(g=>({g, items:fragen.filter(g.passt)})).filter(x=>x.items.length);
+  if(!gruppen.length){ box.innerHTML='<div class="card"><div class="empty">'+leer+'</div></div>'; return; }
+  box.innerHTML = gruppen.map(({g,items})=>{
+    const auf = gefiltert || offenSet.has(g.id);
+    const zeigt = Math.min(items.length, mehrZaehler[g.id] || schritt);
+    return `<details class="gebiet" data-gruppe="${g.id}"${auf?' open':''}>
+      <summary>
+        <span class="pfeil">▶</span>
+        <span class="name k-${g.id}">${esc(g.name)}</span>
+        <span class="zahl">${items.length} ${items.length===1?'Frage':'Fragen'}</span>
+      </summary>
+      <div style="padding:14px 16px 6px">
+        ${items.slice(0,zeigt).map(q=>poolEintrag(q,l[q.id])).join('')}
+        ${items.length>zeigt
+          ? `<div class="morerow" style="border-top:0;padding-left:0"><button class="link" data-mehr="${g.id}">Weitere ${
+              Math.min(schritt, items.length-zeigt)} von ${items.length-zeigt} anzeigen</button></div>`
+          : (items.length>schritt? `<div class="morerow" style="border-top:0;padding-left:0"><button class="link" data-weniger="${g.id}">Wieder einklappen</button></div>`:'')}
+      </div>
+    </details>`;
+  }).join('');
+  $$(ziel+' .gebiet').forEach(d=>d.ontoggle=()=>{
+    if(d.open) offenSet.add(d.dataset.gruppe); else offenSet.delete(d.dataset.gruppe);
+  });
+  return {gruppen, box};
+}
+
 function poolList(){
   const s=$('#q-search').value.toLowerCase().trim(), k=$('#q-kat').value, b=$('#q-block').value, l=letzteJeFrage();
   let r=ALLES.filter(q=>(!k||q.kategorie===k)&&(!b||q.block===b));
   if(s) r=r.filter(q=>(q.frage+' '+q.optionen.join(' ')+' '+q.erlaeuterung+' '+(q.thema||'')).toLowerCase().includes(s));
+  const gefiltert=!!(s||k||b);
   $('#q-count').textContent=r.length+' von '+ALLES.length+' Fragen';
-  $('#poollist').innerHTML = r.length
-    ? r.slice(0,250).map(q=>{ const a=l[q.id];
-        return `<details class="rev"><summary>
-          <span class="mk ${a?(a.ok?'r':'w'):'s'}">${a?(a.ok?'✓':'✕'):'·'}</span>
-          <span><span class="tagrow"><span class="tag k-${q.kategorie}" style="font-size:11px">${katKurz(q.kategorie)}</span></span>${stemHtml(q.frage)}</span></summary>
-          <div class="body"><div class="opts">${q.optionen.map((o,j)=>
-            `<div class="opt static ${j===q.loesung?'right':''}"><span class="ltr">${LTR[j]}</span><span>${esc(o)}</span></div>`).join('')}</div>
-          <div class="expl">${esc(q.erlaeuterung)}</div>
-          <div class="srcline">${esc(q.thema||'')} · ${esc(q.block)} · ${esc(q.id)}</div></div></details>`; }).join('')
-      + (r.length>250?'<div class="empty">Weitere Treffer ausgeblendet – bitte Suche eingrenzen.</div>':'')
-    : '<div class="card"><div class="empty">Keine Frage passt zu diesen Filtern.</div></div>';
+  gruppenliste('#poollist', r, l, POOL_OFFEN, POOL_MEHR, 20, gefiltert, 'Keine Frage passt zu diesen Filtern.');
+  $$('#poollist [data-mehr]').forEach(x=>x.onclick=()=>{
+    POOL_MEHR[x.dataset.mehr]=(POOL_MEHR[x.dataset.mehr]||20)+20; POOL_OFFEN.add(x.dataset.mehr); poolList(); });
+  $$('#poollist [data-weniger]').forEach(x=>x.onclick=()=>{
+    POOL_MEHR[x.dataset.weniger]=20; poolList(); });
 }
 
 /* =====================================================================

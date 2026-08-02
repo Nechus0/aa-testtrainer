@@ -128,12 +128,24 @@ tr:last-child td{border-bottom:0}
 .feld .ct{width:52px;text-align:right;font-size:13px;color:var(--muted-2);font-variant-numeric:tabular-nums;flex:none}
 .morerow{padding:14px 22px;border-top:1px solid var(--line-soft)}
 
+/* Stand je Prüfungsteil */
+.standkarte{display:flex;flex-direction:column}
+.standkarte h3{font-size:17px;line-height:1.3;margin:14px 0 20px;min-height:44px}
+.standkarte .quotezeile{display:flex;align-items:baseline;gap:9px;margin-bottom:12px}
+.standkarte .wert{font-size:36px;font-weight:700;letter-spacing:-.035em;color:var(--ink)}
+.standkarte .leer{font-size:15px;color:var(--muted-2);line-height:44px}
+.standkarte .trend{margin-left:auto;font-size:13.5px;white-space:nowrap}
+.standkarte .zahlen{margin-top:16px}
+.standkarte .fuss{margin-top:auto;padding-top:14px;color:var(--muted-2);line-height:1.4;
+  border-top:1px solid var(--line-soft);margin-bottom:-2px}
+
 /* Fragen des Tages */
 .tagpost{display:flex;flex-direction:column;position:relative}
 .tagpost.fertig{background:#fcfdfc;border-color:#cfe0d7}
 .tagkopf{display:flex;align-items:center;gap:10px;min-height:22px}
 .tagkopf .haken{margin-left:auto;width:22px;height:22px;border-radius:50%;background:var(--ok);color:#fff;
   font-size:13px;font-weight:700;display:grid;place-items:center;flex:none}
+.tagpost h3{min-height:44px}
 .tagpost .btn{margin-top:auto}
 
 /* Trainer */
@@ -234,6 +246,12 @@ tr:last-child td{border-bottom:0}
 .opt.static.wrong:hover{border-color:var(--bad);background:var(--bad-bg)}
 .qfoot{display:flex;align-items:center;gap:14px;margin-top:34px;padding-top:24px;border-top:1px solid var(--line-soft)}
 .navi{margin-top:40px;padding-top:24px;border-top:1px solid var(--line-soft)}
+details.navi.lang>summary{cursor:pointer;list-style:none;font-size:12px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted-2);font-weight:700}
+details.navi.lang>summary::-webkit-details-marker{display:none}
+details.navi.lang>summary::before{content:"▶ ";font-size:9px}
+details.navi.lang[open]>summary::before{content:"▼ "}
+details.navi.lang>summary:hover{color:var(--ink)}
 .navi .lab{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin-bottom:14px}
 .pgrid{display:flex;gap:6px;flex-wrap:wrap}
 .pg{width:32px;height:32px;border:1px solid var(--line);background:var(--paper);font-size:13px;color:var(--muted);display:grid;place-items:center;padding:0;border-radius:2px;font-variant-numeric:tabular-nums}
@@ -341,6 +359,16 @@ label.fld{display:flex;flex-direction:column;gap:8px;font-size:12px;letter-spaci
 .gebiet .name{font-size:15px;font-weight:700;letter-spacing:.03em;color:var(--ink);flex:1;min-width:0}
 .gebiet .zahl{font-size:13px;color:var(--muted-2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .gebiet .fehlt{font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap}
+.gebiet .name.k-recht,.gebiet .name.k-geschichte,.gebiet .name.k-wirtschaft,.gebiet .name.k-franzoesisch{
+  display:flex;align-items:center;gap:10px}
+.gebiet .name[class*="k-"]::before{content:"";width:10px;height:10px;background:var(--kc,var(--muted));flex:none}
+.gebiet .rev{margin-bottom:10px}
+details.lp-auf{border-top:1px solid var(--line-soft)}
+details.lp-auf>summary{cursor:pointer;list-style:none;padding:15px 22px;font-size:14.5px;color:var(--ink)}
+details.lp-auf>summary::-webkit-details-marker{display:none}
+details.lp-auf>summary::before{content:"▶ ";font-size:10px;color:var(--muted-2)}
+details.lp-auf[open]>summary::before{content:"▼ "}
+details.lp-auf>summary:hover{background:var(--tint)}
 
 /* Kontenliste */
 .konto{display:flex;align-items:center;gap:16px;padding:18px 22px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
