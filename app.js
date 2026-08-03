@@ -2256,30 +2256,38 @@ function passwortSetzen(id, mail){
     <h2 style="margin-bottom:8px">Passwort neu setzen</h2>
     <p class="small mute" style="margin-bottom:20px">Für ${esc(mail)}. Das neue Passwort gilt sofort; teile es der Person auf sicherem Weg mit.</p>
     <div style="display:flex;flex-direction:column;gap:16px">
-      <label class="fld">Neues Passwort<input id="p-neu" type="text" minlength="8" value=""></label>
+      <label class="fld">Neues Passwort<input id="p-neu" type="text" minlength="10" value=""></label>
       <div id="p-fehler"></div>
       <div style="display:flex;gap:12px;justify-content:flex-end">
         <button class="btn ghost" id="p-ab">Abbrechen</button>
         <button class="btn" id="p-ok">Setzen</button>
       </div>
     </div>`);
-  const zufall = Array.from(crypto.getRandomValues(new Uint8Array(9)))
+  /* Zwölf Zeichen: die Funktion verlangt mindestens zehn. */
+  const zufall = Array.from(crypto.getRandomValues(new Uint8Array(12)))
     .map(b=>'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b%56]).join('');
   $('#p-neu').value = zufall;
   $('#p-ab').onclick=()=>d.remove();
   $('#p-ok').onclick=async ()=>{
     const pw=$('#p-neu').value;
-    if(pw.length<8){ $('#p-fehler').innerHTML='<div class="hinweis fehler">Mindestens acht Zeichen.</div>'; return; }
-    try{ await funktionRufen('nutzer-verwalten', {aktion:'passwort', id, passwort:pw});
+    if(pw.length<10){ $('#p-fehler').innerHTML='<div class="hinweis fehler">Mindestens zehn Zeichen.</div>'; return; }
+    try{ await funktionRufen('nutzer-verwalten', {aktion:'passwort', nutzer:id, passwort:pw});
          d.remove(); toast('Passwort gesetzt.'); }
     catch(e){ $('#p-fehler').innerHTML=`<div class="hinweis fehler">${esc(fehlertext(e))}</div>`; }
   };
 }
 
+/* Das Feld heißt in der Funktion „nutzer“ – nicht „id“. Solange hier „id“
+   stand, kam bei jedem Versuch „Kein Konto angegeben“ zurück. */
 async function nutzerLoeschen(id, mail){
-  if(!confirm('Konto '+mail+' endgültig löschen? Alle Ergebnisse dieser Person gehen verloren.')) return;
-  try{ await funktionRufen('nutzer-verwalten', {aktion:'loeschen', id}); toast('Konto gelöscht.'); nutzerlisten(); }
-  catch(e){ toast(fehlertext(e)); }
+  if(!confirm('Konto '+mail+' endgültig löschen?\n\nDurchgänge, Antworten und Markierungen dieser Person '
+             +'werden mitgelöscht. Aufgenommene Quellen bleiben erhalten, verlieren aber den Vermerk, '
+             +'wer sie eingestellt hat.')) return;
+  try{
+    await funktionRufen('nutzer-verwalten', {aktion:'loeschen', nutzer:id});
+    toast('Konto gelöscht.');
+    nutzerlisten();
+  }catch(e){ toast(fehlertext(e)); }
 }
 
 
@@ -2644,7 +2652,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-03-9';
+const FASSUNG = 'tt-2026-08-03-10';
 let SW_REG = null, SW_NEULADEN = false;
 
 async function dienstStarten(){
@@ -2678,48 +2686,19 @@ async function nachAktualisierungSehen(melden){
 dienstStarten();
 
 /* ---------- Anzeigegröße auf dem Telefon ----------
-   Steht in Safari „Desktop-Website anfordern“ an (auf dem iPad die
-   Voreinstellung, auf dem iPhone einmal getippt und danach für die Adresse
-   gemerkt), baut Safari die Seite auf einer 980 Punkt breiten Bühne auf und
-   verkleinert sie anschließend auf die Gerätebreite. Die Schrift landet dann
-   bei rund 40 Prozent, und man muss von Hand hineinzoomen.
-
-   Erkennbar ist das daran, dass die Bühne deutlich breiter ist als der
-   Bildschirm. In diesem Fall wird die Bühnenbreite erneut gesetzt – Safari
-   verwirft die Desktop-Bühne und rechnet wieder in Gerätepunkten. Trifft die
-   Bedingung nicht zu, ändert sich nichts. */
-const TIPPGERAET = matchMedia('(pointer:coarse)').matches;
-const desktopBuehne = ()=>{
-  const geraet = Math.min(screen.width||0, screen.height||0);
-  return TIPPGERAET && geraet > 0 && window.innerWidth > geraet * 1.3;
-};
-
+   Manche Geräte bauen die Seite auf einer breiteren Bühne auf als der
+   Bildschirm hergibt und verkleinern sie danach. Dann wird die Bühnenbreite
+   erneut gesetzt, damit wieder in Gerätepunkten gerechnet wird. Trifft die
+   Bedingung nicht zu – der Normalfall –, ändert sich nichts. */
 function bildschirmMassnehmen(){
   const m = document.querySelector('meta[name=viewport]');
-  if(!m || !desktopBuehne()) return;
-  const geraet = Math.min(screen.width, screen.height);
+  if(!m || !window.screen) return;
+  const geraet = Math.min(screen.width||0, screen.height||0);
+  if(!geraet || window.innerWidth <= geraet * 1.3) return;
   m.setAttribute('content', 'width=' + geraet + ', initial-scale=1, viewport-fit=cover');
-  /* Ein zweiter Durchgang: nachdem Safari die Bühne verworfen hat, wieder auf
-     die Gerätebreite umstellen, damit auch das Drehen stimmt. */
-  setTimeout(()=>{
-    m.setAttribute('content','width=device-width, initial-scale=1, viewport-fit=cover');
-    /* Bleibt Safari bei der Desktop-Bühne, hilft nur die Einstellung selbst.
-       Dann sagen wir dem Nutzer, wo sie steht, statt ihn zoomen zu lassen. */
-    setTimeout(desktopHinweis, 400);
-  }, 300);
+  setTimeout(()=>m.setAttribute('content',
+    'width=device-width, initial-scale=1, viewport-fit=cover, shrink-to-fit=no'), 300);
 }
-
-function desktopHinweis(){
-  if(!desktopBuehne() || document.getElementById('desktopwarnung')) return;
-  const d = document.createElement('div');
-  d.id = 'desktopwarnung';
-  d.innerHTML = '<span>Safari zeigt diese Seite als <b>Desktop-Fassung</b> – deshalb ist alles verkleinert. '
-    + 'Tippe links in der Adressleiste auf <b>aA</b> und wähle <b>Mobile Website anfordern</b>.</span>'
-    + '<button type="button" aria-label="Hinweis schließen">&times;</button>';
-  d.querySelector('button').onclick = ()=>d.remove();
-  document.body.appendChild(d);
-}
-
 bildschirmMassnehmen();
 window.addEventListener('orientationchange', ()=>setTimeout(bildschirmMassnehmen, 250));
 
