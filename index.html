@@ -150,7 +150,28 @@ tr:last-child td{border-bottom:0}
 .tagpost h3{min-height:44px}
 .tagpost .btn{margin-top:auto}
 
-/* Trainer */
+/* Trainer: Segmentschalter, aufklappbare Einstellzeilen, Umfangskarte */
+.segmente{display:flex;gap:4px;background:var(--tint-2);border-radius:12px;padding:4px;margin-bottom:20px}
+.segmente .seg-btn{flex:1;min-height:42px;border:0;border-radius:9px;background:none;
+  font-size:15.5px;font-weight:600;color:var(--muted);cursor:pointer}
+.segmente .seg-btn.an{background:var(--paper);color:var(--ink);font-weight:700;
+  box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+.grpliste{overflow:hidden;padding:0;margin-bottom:16px}
+.grp-zeile{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:none;
+  border:0;border-bottom:1px solid var(--line-soft);padding:16px 20px;min-height:58px;cursor:pointer}
+.grp-zeile:hover{background:var(--tint)}
+.grp-zeile .gl{flex:none;font-size:16px;color:var(--ink)}
+.grp-zeile .gw{flex:1;min-width:0;text-align:right;font-size:15.5px;color:var(--muted-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp-zeile .gp{flex:none;width:9px;height:9px;border-right:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
+  transform:rotate(45deg) translate(-2px,-2px);transition:transform .16s}
+.grp-zeile.auf .gp{transform:rotate(225deg) translate(-2px,-2px)}
+.grp-zeile.auf{border-bottom-color:transparent}
+.grp-inhalt{padding:2px 20px 20px;border-bottom:1px solid var(--line-soft)}
+.grpliste > *:last-child{border-bottom:0}
+.umfangkarte .tr-lab{margin-bottom:14px}
+
 .tr-block{padding:0 0 28px;margin-bottom:28px;border-bottom:1px solid var(--line-soft)}
 .tr-block:last-of-type{border-bottom:0;margin-bottom:0;padding-bottom:8px}
 .tr-lab{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);font-weight:700;
@@ -228,6 +249,8 @@ tr:last-child td{border-bottom:0}
 .trail{height:3px;background:var(--tint-2)} .trail i{display:block;height:100%;background:var(--ink);transition:width .3s}
 .qcard{padding:8px 0 0} .qcard.marked{border-left:5px solid var(--gold);padding-left:22px;margin-left:-27px}
 .qhead{display:flex;align-items:center;gap:16px;margin-bottom:26px;flex-wrap:wrap}
+.markbtn{display:inline-flex;align-items:center;gap:7px}
+.markbtn .mk-ic{font-size:15px;line-height:1}
 .qnum{font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);font-weight:700}
 .markhint{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
 .stem{font-size:25px;line-height:1.36;font-weight:700;color:var(--ink);letter-spacing:-.018em;margin-bottom:30px;max-width:740px}
@@ -247,6 +270,8 @@ tr:last-child td{border-bottom:0}
 .opt.static.right:hover{border-color:var(--ok);background:var(--ok-bg)}
 .opt.static.wrong:hover{border-color:var(--bad);background:var(--bad-bg)}
 .qfoot{display:flex;align-items:center;gap:14px;margin-top:34px;padding-top:24px;border-top:1px solid var(--line-soft)}
+.stand .st-kurz{display:none}
+.zurueckbtn .zb-ic{display:none}
 .navi{margin-top:40px;padding-top:24px;border-top:1px solid var(--line-soft)}
 details.navi.lang>summary{cursor:pointer;list-style:none;font-size:12px;letter-spacing:.09em;
   text-transform:uppercase;color:var(--muted-2);font-weight:700}
@@ -282,7 +307,15 @@ details.navi.lang>summary:hover{color:var(--ink)}
 .verdict{display:inline-flex;align-items:center;gap:10px;font-size:15px;font-weight:700;padding:8px 16px;border-radius:2px;margin-top:14px}
 .verdict.ja{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok)}
 .verdict.nein{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad)}
-.score{display:flex;align-items:center;gap:44px;padding:36px 34px;flex-wrap:wrap}
+.score{display:flex;align-items:center;gap:44px;padding:36px 34px;flex-wrap:wrap;margin-bottom:16px}
+.scoretext{flex:1;min-width:240px}
+.scorezahl{font-size:27px;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.teilliste{margin-bottom:8px}
+.teilliste .zeile{min-height:58px}
+.teilliste .nm{font-size:15.5px;font-weight:400;color:var(--text)}
+/* Abschlusstasten: auf dem Rechner am Seitenende, auf dem Telefon fest unten. */
+.ergfuss{display:flex;gap:12px;margin-top:30px;padding-top:22px;border-top:1px solid var(--line-soft)}
+.ergfuss .btn{flex:1;min-height:52px}
 .expl{margin-top:18px;border-left:4px solid var(--line);background:var(--tint);padding:18px 22px;font-size:15.5px;line-height:1.6}
 .expl.ok{border-color:var(--ok);background:var(--ok-bg)} .expl.bad{border-color:var(--bad);background:var(--bad-bg)}
 .rev{border:1px solid var(--line);border-radius:3px;margin-bottom:12px;background:var(--paper)}
@@ -371,6 +404,42 @@ details.lp-auf>summary::-webkit-details-marker{display:none}
 details.lp-auf>summary::before{content:"▶ ";font-size:10px;color:var(--muted-2)}
 details.lp-auf[open]>summary::before{content:"▼ "}
 details.lp-auf>summary:hover{background:var(--tint)}
+
+/* =====================================================================
+   Bausteine aus dem Entwurf: gruppierte Listen in weißen Karten
+   ===================================================================== */
+.cdcard{display:flex;align-items:center;gap:18px;background:var(--schwarz);color:#fff;
+  border-radius:14px;padding:20px 24px;margin-bottom:30px}
+.cdcard .n{font-size:52px;line-height:.95;font-weight:700;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.cdcard .t{display:flex;flex-direction:column;gap:3px}
+.cdcard .t b{font-size:16px;font-weight:600}
+.cdcard .t i{font-style:normal;font-size:13.5px;color:rgba(255,255,255,.62)}
+
+.card.liste{overflow:hidden;padding:0}
+.liste .zeile{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  padding:15px 20px;background:none;border:0;border-bottom:1px solid var(--line-soft);min-height:64px}
+.liste .zeile:last-child{border-bottom:0}
+button.zeile{cursor:pointer}
+button.zeile:hover{background:var(--tint)}
+.liste .pt{width:11px;height:11px;flex:none;background:var(--kc,var(--muted));align-self:flex-start;margin-top:5px}
+.liste .mitte{flex:1;min-width:0;display:block}
+/* Lange Namen dürfen umbrechen – aber höchstens auf zwei Zeilen, damit die
+   Liste ihre gleichmäßige Höhe behält. */
+.liste .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  font-size:16px;font-weight:600;color:var(--ink);letter-spacing:-.01em;
+  overflow:hidden;line-height:1.28}
+.liste .sub{display:block;font-size:12.5px;color:var(--muted-2);margin-top:2px}
+.liste .bar{display:block;height:4px;background:var(--tint-2);margin-top:9px;border-radius:2px;overflow:hidden}
+.liste .bar i{display:block;height:100%;background:var(--kc,var(--ink))}
+.liste .wert{flex:none;font-size:16px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;
+  min-width:56px;text-align:right}
+.chip-start,.chip-fertig,.chip-stand{flex:none;display:inline-flex;align-items:center;justify-content:center;
+  min-height:38px;padding:0 16px;border-radius:10px;font-size:14.5px;font-weight:700;white-space:nowrap}
+.chip-start{background:var(--ink);color:#fff}
+.chip-fertig{background:var(--ok-bg);color:var(--ok);border:1px solid #c4ded1}
+.chip-stand{background:var(--tint);color:var(--muted);border:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
+.eyebrow .kopfrechts{float:right;font-weight:400;letter-spacing:0;text-transform:none;
+  font-size:12.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
 
 /* Abdeckung des Lehrplans: Aufstieg über drei Ebenen statt einer langen Liste */
 .lp-brot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 22px;
@@ -476,30 +545,46 @@ details.lp-auf>summary:hover{background:var(--tint)}
 @media(max-width:720px){
   :root{ --kopf:0px; --tableiste:74px; }
 
-  /* Kein backdrop-filter auf dem Kopf: er erzeugt sonst einen eigenen
-     Bezugsrahmen, und die fest verankerte Tab-Leiste in <nav> würde daran
-     kleben statt am unteren Fensterrand. */
+  /* Der Bildschirm liegt auf Grau, die Inhalte stehen in weißen Karten –
+     wie im Entwurf. Die Markenzeile entfällt; ihre Aufgabe übernimmt der
+     große Seitentitel, der als Kopfzeile klebt. Kein backdrop-filter auf
+     <header>: er erzeugte einen eigenen Bezugsrahmen und die fest
+     verankerte Tab-Leiste klebte daran statt am Fensterrand. */
+  body{ background:#f2f3f4 }
+  /* Die Kopfzeile verschwindet optisch, bleibt aber im Fluss – sie trägt die
+     <nav>, aus der unten die Tab-Leiste wird. Ein display:none nähme uns die
+     Leiste mit; deshalb nur Höhe, Rahmen und Hintergrund entfernen. */
   header{
-    position:sticky; top:0; z-index:50;
-    background:var(--paper);
-    border-bottom:1px solid var(--line-soft);
+    position:static; background:none; border:0; box-shadow:none;
+    height:0; overflow:visible; padding:0; margin:0;
+    -webkit-backdrop-filter:none; backdrop-filter:none;
   }
-  .hd{
-    height:auto; gap:10px;
-    padding-top:calc(10px + env(safe-area-inset-top));
-    padding-bottom:10px;
-  }
-  .brand{ padding-bottom:0; gap:10px; }
-  .brand .t{ font-size:15px; }
-  .brand .s{ display:block; font-size:11.5px; }
+  header .hd{ display:block; padding:0; min-height:0 }
+  header .brand{ display:none }
 
-  /* Seitentitel groß, direkt unter der Marke – iOS „Large Title“. */
-  .page{ padding-top:16px; padding-bottom:0; margin-bottom:22px; border-bottom:0; }
-  .page .row{ padding-bottom:16px; gap:14px; flex-direction:column; align-items:stretch }
-  /* Countdown in eine Zeile, damit das Datum nicht über den Rand läuft. */
-  .page .row>div+div{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap }
-  .page .row>div+div .eyebrow{ flex:1 1 100%; margin-bottom:2px }
-  .page .row>div+div .small{ margin-top:0!important }
+  .page{
+    position:sticky; top:0; z-index:45;
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);
+    backdrop-filter:saturate(180%) blur(18px);
+    border-bottom:1px solid var(--line-soft);
+    padding-top:calc(10px + env(safe-area-inset-top));
+    padding-bottom:12px; margin-bottom:16px;
+  }
+  .page .eyebrow{
+    display:flex; align-items:center; gap:10px;
+    font-size:12.5px; letter-spacing:.11em; margin-bottom:0;
+  }
+  /* Flagge links neben der Rubrik – der Rest der Marke entfällt. */
+  .page .eyebrow::before{
+    content:""; width:5px; height:26px; flex:none; border-radius:1px;
+    background:linear-gradient(#000 0 33.4%, #dd0000 33.4% 66.7%, #ffcc00 66.7% 100%);
+  }
+  .page .eyebrow .kopfrechts{ float:none; margin-left:auto }
+  .page .eyebrow .link{ margin-left:0 }
+  .page h1{ margin-top:6px }
+  .page .lead{ display:none }
+  .page .row{ padding-bottom:0; gap:0; display:block }
   .eyebrow{ font-size:11.5px; margin-bottom:8px; }
   h1{ font-size:30px; line-height:1.12; letter-spacing:-.028em; }
   h2{ font-size:19px; }
@@ -560,9 +645,13 @@ details.lp-auf>summary:hover{background:var(--tint)}
 /* ---------- 4 · Karten und Listen ---------- */
 @media(max-width:720px){
   .sec{ margin-top:26px }
-  .sec-h{ padding-bottom:10px; margin-bottom:12px; border-bottom:0 }
-  .sec-h h2{ font-size:13px }
-  .sec-h .note{ font-size:12.5px }
+  /* Überschrift und Randnotiz bleiben auf einer Zeile – die Notiz weicht
+     zurück, statt in eine zweite Zeile zu rutschen. */
+  .sec-h{ padding-bottom:10px; margin-bottom:12px; border-bottom:0;
+    flex-wrap:nowrap; gap:12px; align-items:baseline }
+  .sec-h h2{ font-size:13px; flex:none }
+  .sec-h .note{ font-size:12.5px; flex:1 1 auto; min-width:0; text-align:right;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 
   .grid{ gap:10px }
   .g4{ grid-template-columns:repeat(2,1fr) }
@@ -629,6 +718,11 @@ details.lp-auf>summary:hover{background:var(--tint)}
   .tr-start .btn{ order:1; width:100%; min-height:54px; border-radius:13px; font-size:17px; padding:0 }
   .tr-zusammen{ order:2; flex:1 1 100%; text-align:center; font-size:12.5px }
 
+  .segmente{ margin-bottom:16px }
+  .grp-zeile{ padding:15px 18px }
+  .grp-inhalt{ padding:2px 18px 18px }
+  .umfangkarte{ padding:16px 18px 18px }
+
   /* Dieselbe Logik im Bestand: die Auswahl bleibt startbar, ohne ans
      Ende einer womöglich sehr langen Liste zu scrollen. */
   /* Kennungen statt Klassen: die allgemeinen Regeln stehen weiter unten in
@@ -658,19 +752,30 @@ details.lp-auf>summary:hover{background:var(--tint)}
     -webkit-backdrop-filter:saturate(180%) blur(18px);
     backdrop-filter:saturate(180%) blur(18px);
   }
-  .exambar .in{ padding:10px 16px; gap:12px; flex-wrap:nowrap; align-items:center }
-  .exambar .in>div:first-child{ flex:1 1 auto!important; min-width:0; order:0 }
+  /* Wie im Entwurf: Abbruch links, Titel mittig, Uhr rechts. */
+  .exambar .in{ padding:10px 16px; gap:10px; flex-wrap:nowrap; align-items:center }
+  .exambar .in .kopfmitte{ order:2; flex:1 1 0!important; min-width:0; text-align:center }
+  .exambar .in #abbruch{ order:1 }
+  .exambar .in .kopfzeit{ order:3; flex:none; text-align:right }
   .exambar .who{ font-size:10.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-  .exambar .what{ font-size:15px }
-  .exambar .in .btn{ margin-left:0; min-height:38px; border-radius:10px; padding:0 13px }
-  .timer{ font-size:24px } .timerlab{ display:none }
-  .exambar .in>.small{ flex:none; font-size:11.5px; white-space:nowrap; line-height:1.2; text-align:right }
+  .exambar .what{ font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .exambar .in .btn{ margin-left:0; min-height:38px; border-radius:10px; padding:0 12px; font-size:14px }
+  .timer{ font-size:22px } .timerlab{ display:none }
+  .exambar .in .kopfzeit.small{ font-size:11.5px; white-space:nowrap; line-height:1.2 }
+
+  /* Markieren wird zum reinen Stern – der Text braucht die Breite nicht. */
+  .qhead .markbtn{ min-height:40px; min-width:40px; padding:0; border-radius:11px; font-size:17px }
+  .qhead .markbtn .mk-txt{ display:none }
 
   .runwrap{ max-width:none }
   .qcard{ padding:0 }
   .qcard.marked{ margin-left:0; padding-left:12px }
-  .qhead{ gap:10px; margin-bottom:14px }
-  .qnum{ font-size:12.5px }
+  /* Eine Zeile: Marke · Zähler · Stern. Der Zähler weicht zurück. */
+  .qhead{ gap:10px; margin-bottom:14px; flex-wrap:nowrap; align-items:center }
+  .qhead .tag{ flex:none }
+  .qnum{ font-size:12.5px; flex:1 1 auto; min-width:0; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap }
+  .qhead .markhint{ display:none }
   .stem{ font-size:21px; line-height:1.36; margin-bottom:20px }
 
   /* Antwortflächen: volle Breite, mindestens 56 px hoch. */
@@ -690,10 +795,22 @@ details.lp-auf>summary:hover{background:var(--tint)}
   }
   .qfoot .btn{ min-height:52px; border-radius:13px; padding:0 20px; flex:none }
   .qfoot .btn.ghost{ min-width:96px }
+  /* Zurück wird zum Pfeilquadrat, der Stand zur Pille in der Mitte. */
+  .qfoot .btn.ghost.zurueckbtn{ min-width:52px; width:52px; padding:0; font-size:22px; line-height:1 }
+  .qfoot .zurueckbtn .zb-ic{ display:inline }
+  .qfoot .zurueckbtn .zb-txt{ display:none }
   .qfoot .small{
     order:0; flex:1 1 auto; margin:0!important; text-align:center;
     font-size:12.5px; line-height:1.25;
   }
+  .qfoot .stand{
+    display:flex; align-items:center; justify-content:center; min-width:0;
+    min-height:52px; border-radius:13px; border:1px solid var(--line-soft); background:var(--paper);
+  }
+  .qfoot .stand .st-lang{ display:none }
+  .qfoot .stand .st-kurz{ display:block; text-align:center }
+  .qfoot .stand .st-kurz b{ display:block; font-size:16px; color:var(--ink) }
+  .qfoot .stand .st-kurz i{ display:block; font-style:normal; font-size:11.5px; color:var(--muted-2) }
 
   /* Sprungleiste unter der Kopfzeile: alle Fragen als Streifen, der
      Streifen führt die aktuelle Frage automatisch mittig nach.
@@ -776,12 +893,27 @@ details.lp-auf>summary:hover{background:var(--tint)}
 
 /* ---------- 7 · Ergebnis und Durchsicht ---------- */
 @media(max-width:720px){
-  .score{ padding:20px 18px; gap:18px; justify-content:flex-start; text-align:left }
-  .score svg{ width:104px; height:104px }
-  .score>div:last-child{ flex:1 1 100%; display:flex; gap:10px }
-  .score>div:last-child .btn{ flex:1; min-height:54px; border-radius:13px }
+  /* Ring links, Zahl rechts daneben – wie im Entwurf. */
+  .score{ padding:20px 18px; gap:18px; justify-content:flex-start;
+    text-align:left; flex-wrap:nowrap; align-items:center }
+  .score svg{ width:96px; height:96px; flex:none }
+  .scoretext{ min-width:0 }
+  .scorezahl{ font-size:22px; line-height:1.2 }
+  .score .small{ font-size:12.5px }
   .spec{ grid-template-columns:1fr }
   .verdict{ width:100%; justify-content:center; padding:12px 16px; border-radius:11px }
+
+  /* Die beiden Abschlusstasten kleben über der Tab-Leiste – erreichbar,
+     ohne die Durchsicht bis zum Ende scrollen zu müssen. */
+  .ergfuss{
+    position:sticky; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom));
+    z-index:30; margin:22px -16px 0; padding:10px 16px 12px;
+    background:rgba(255,255,255,.94);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);
+    backdrop-filter:saturate(180%) blur(18px);
+    border-top:1px solid var(--line-soft); gap:10px;
+  }
+  .ergfuss .btn{ min-height:54px; border-radius:13px; font-size:16px }
 
   .rev{ border-radius:14px; margin-bottom:10px }
   .rev>summary{ padding:15px 16px; font-size:15.5px; gap:12px; min-height:56px }
@@ -793,6 +925,24 @@ details.lp-auf>summary:hover{background:var(--tint)}
 
 /* ---------- 8 · Anmeldung, Meldungen, Verwaltung ---------- */
 @media(max-width:720px){
+  /* „Mehr“ als zusammenhängende Liste statt einzelner Kacheln – eine Karte,
+     darin je Eintrag eine Zeile mit Titel, Erklärung und Pfeil. Kennungen
+     statt Klassen: die allgemeinen .kachel-Regeln stehen weiter unten in der
+     Datei und würden sonst gewinnen. */
+  #mehrgitter{ gap:0; background:var(--paper); border:1px solid var(--line-soft);
+    border-radius:14px; overflow:hidden; grid-template-columns:1fr }
+  #mehrgitter .kachel{ border:0; border-bottom:1px solid var(--line-soft); border-radius:0;
+    padding:15px 44px 15px 18px; gap:3px; position:relative }
+  #mehrgitter .kachel:last-child{ border-bottom:0 }
+  #mehrgitter .kachel:hover{ background:var(--tint) }
+  #mehrgitter .kachel h3{ font-size:16.5px }
+  #mehrgitter .kachel p{ font-size:13px; line-height:1.4;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }
+  #mehrgitter .kachel .zahl{ margin-top:1px; font-size:12px }
+  #mehrgitter button.kachel::after{ content:""; position:absolute; right:20px; top:50%;
+    width:9px; height:9px; border-right:1.8px solid #b6bcc4; border-bottom:1.8px solid #b6bcc4;
+    transform:translateY(-50%) rotate(-45deg) }
+
   #anmeldung{ padding:calc(24px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-left))
               calc(40px + env(safe-area-inset-bottom)) }
   .anmeldebox h1{ font-size:26px }
@@ -895,7 +1045,7 @@ details.lp-auf>summary:hover{background:var(--tint)}
   .tr-start{position:sticky;bottom:0;z-index:20;
     background:rgba(255,255,255,.94);
     -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
-    margin:28px -28px -26px;padding:20px 28px;border-top:1px solid var(--line)}
+    margin:22px 0 0;padding:16px 0;border-top:1px solid var(--line)}
 
   /* Lesetext mit eigenem Scrollbereich statt endloser Textwand */
   .artikel .kopf{width:100%;display:flex;align-items:center;gap:12px;text-align:left;

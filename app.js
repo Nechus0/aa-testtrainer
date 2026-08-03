@@ -364,20 +364,19 @@ function navBauen(){
 function schaleBauen(){
   $('#v-dash').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow">Auswahlverfahren</div>
+      <div class="eyebrow">Auswahlverfahren<span class="kopfrechts" id="kopf-serie"></span></div>
       <div class="row">
         <div style="flex:1;min-width:280px">
           <h1>Übersicht</h1>
           <p class="lead" id="dash-lead">Dein Stand in den drei Fachtests des schriftlichen Auswahlverfahrens.</p>
         </div>
-        <div>
-          <div class="eyebrow" style="margin-bottom:8px">Schriftlicher Teil</div>
-          <div class="cd"><span class="n" id="cd-n">–</span><span class="u" id="cd-u"></span></div>
-          <div class="small mute" style="margin-top:8px">Dienstag, 1. September 2026</div>
-        </div>
       </div>
     </div>
     <div class="wrap">
+      <div class="cdcard">
+        <span class="n" id="cd-n">–</span>
+        <span class="t"><b id="cd-u">Tage bis zur Prüfung</b><i>Dienstag, 1. September 2026</i></span>
+      </div>
       <div class="sec" style="margin-top:0">
         <div class="sec-h"><h2>Heute</h2><span class="note" id="tag-note"></span></div>
         <div id="tagesaufgaben"></div>
@@ -388,7 +387,7 @@ function schaleBauen(){
       </div>
       <div class="sec">
         <div class="sec-h"><h2>Nach Prüfungsteil</h2><span class="note">Trefferquote und Bearbeitungsstand</span></div>
-        <div class="grid g4" id="standkarten"></div>
+        <div id="standkarten"></div>
       </div>
       <div class="sec">
         <div class="sec-h"><h2>Verlauf</h2><span class="note">Trefferquote je Tag</span></div>
@@ -413,21 +412,26 @@ function schaleBauen(){
       <div class="eyebrow">Üben</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Trainer</h1>
-        <p class="lead">Stell dir zusammen, was du üben willst: Bereiche, Umfang, Auswahl und Zeitdruck. Darunter die Prüfungssimulationen im Originalformat.</p>
+        <p class="lead">Entweder selbst zusammenstellen – Bereiche, Schwerpunkt, Zeit und Umfang – oder einen der vorgegebenen Tests im Originalformat starten.</p>
       </div></div>
     </div>
     <div class="wrap">
-      <div class="sec" style="margin-top:0">
-        <div class="sec-h"><h2>Training zusammenstellen</h2><span class="note" id="tr-note"></span></div>
-        <div class="card pad" id="trainer"></div>
+      <div class="segmente" id="tr-seg">
+        <button class="seg-btn an" data-seg="frei">Selbst wählen</button>
+        <button class="seg-btn" data-seg="tests">Vorgegebene Tests</button>
       </div>
-      <div class="sec">
-        <div class="sec-h"><h2>Prüfungssimulation</h2><span class="note">Originalformat mit Prüfungszeit</span></div>
-        <div class="modes" id="modes-exam"></div>
+      <div id="tr-pane-frei">
+        <div id="trainer"></div>
       </div>
-      <div class="sec">
-        <div class="sec-h"><h2>Alle Tagespakete</h2><span class="note" id="pakete-note"></span></div>
-        <div class="card" id="pakete"></div>
+      <div id="tr-pane-tests" hidden>
+        <div class="sec" style="margin-top:0">
+          <div class="sec-h"><h2>Prüfungssimulation</h2><span class="note">Originalformat mit Prüfungszeit</span></div>
+          <div class="modes" id="modes-exam"></div>
+        </div>
+        <div class="sec">
+          <div class="sec-h"><h2>Alle Tagespakete</h2><span class="note" id="pakete-note"></span></div>
+          <div class="card" id="pakete"></div>
+        </div>
       </div>
     </div>`;
 
@@ -552,7 +556,7 @@ function countdown(){
   const d=Math.ceil(t/864e5);
   const n=$('#cd-n'); if(!n) return;
   n.textContent = t? d : 0;
-  $('#cd-u').textContent = t? (d===1?'Tag':'Tage') : 'Tage';
+  $('#cd-u').textContent = (t && d===1) ? 'Tag bis zur Prüfung' : 'Tage bis zur Prüfung';
 }
 
 /* ---------- Router ---------- */
@@ -635,21 +639,20 @@ function renderDash(){
         ? 'Letzter Sprachtest: '+lf.punkte+' von '+FR_META.punkte+' Punkten · '+(lf.punkte>=FR_META.bestanden?'bestanden':'nicht bestanden')
         : 'Prüfungsformat: 52 Aufgaben in 30 Minuten, bestanden ab 30 Punkten'}]);
 
-  $('#standkarten').innerHTML = karten.map(c=>`
-    <div class="card pad standkarte k-${c.kls}">
-      <div class="tag">${esc(c.marke)}</div>
-      <h3>${esc(c.name)}</h3>
-      <div class="quotezeile">
-        ${c.quote!==null
-          ? `<span class="wert tnum">${c.quote}</span><span class="mute" style="font-size:17px">%</span>`
-          : `<span class="leer">noch keine Antwort</span>`}
-        ${c.trend!==null?`<span class="trend" style="color:${c.trend>0?'var(--ok)':c.trend<0?'var(--bad)':'var(--muted-2)'}">${c.trend>0?'▲':c.trend<0?'▼':'▬'} ${Math.abs(c.trend)} Pp.</span>`:''}
-      </div>
-      <div class="meter"><i style="width:${c.quote||0}%"></i></div>
-      <div class="xs mute zahlen"><b class="tnum">${c.gesehen}</b> / ${c.pool} bearbeitet · <b class="tnum">${c.offen}</b> offen</div>
-      <div class="xs mute fuss">${esc(c.fuss)}</div>
-    </div>`).join('');
+  $('#standkarten').innerHTML = `<div class="card liste">${karten.map(c=>`
+    <div class="zeile standzeile k-${c.kls}">
+      <span class="pt"></span>
+      <span class="mitte">
+        <span class="nm">${esc(c.name)}</span>
+        <span class="sub"><b class="tnum">${c.gesehen}</b> / ${c.pool} bearbeitet · <b class="tnum">${c.offen}</b> offen${
+          c.trend!==null?` · <span style="color:${c.trend>0?'var(--ok)':c.trend<0?'var(--bad)':'var(--muted-2)'}">${c.trend>0?'▲':c.trend<0?'▼':'▬'} ${Math.abs(c.trend)} Pp.</span>`:''}</span>
+        <span class="bar"><i style="width:${c.quote||0}%"></i></span>
+      </span>
+      <span class="wert tnum">${c.quote!==null? c.quote+' %' : '–'}</span>
+    </div>`).join('')}</div>`;
 
+  const serie=$('#kopf-serie');
+  if(serie){ const st=streak(); serie.textContent = st? st+(st===1?' Tag Serie':' Tage Serie') : ''; }
   tagesaufgaben(); chart(); weak(); sessionsListe();
 }
 
@@ -682,28 +685,24 @@ function tagesaufgaben(){
     ? offenGesamt+' von '+gesamt+' Fragen offen'
     : 'alle '+gesamt+' Fragen erledigt';
 
-  box.innerHTML =
-    (offenGesamt===0 ? `<div class="banner" style="margin-bottom:20px"><b>Pensum für heute erledigt.</b>
-        Alle ${gesamt} Fragen aus ${esc(posten[0].block)} sind bearbeitet.</div>`:'')
-    + `<div class="grid g4">${posten.map((p,i)=>{
-        const auf=p.qs.filter(q=>l[q.id]).length, n=p.qs.length;
-        const ok=p.qs.filter(q=>l[q.id]&&l[q.id].ok).length;
-        const fertig = auf===n;
-        return `<div class="card pad tagpost k-${p.kls}${fertig?' fertig':''}">
-          <div class="tagkopf">
-            <span class="tag">${esc(p.marke)}</span>
-            ${fertig?'<span class="haken" title="erledigt">✓</span>':''}
-          </div>
-          <h3 style="margin:12px 0 6px;font-size:17px">${esc(p.name)}</h3>
-          <div class="xs mute">${esc(p.block)} · ${n} Fragen</div>
-          <div class="meter" style="margin:16px 0 10px"><i style="width:${Math.round(auf/n*100)}%"></i></div>
-          <div class="xs mute" style="margin-bottom:18px">${fertig
-            ? '<b style="color:var(--ok)">erledigt</b> · '+ok+' von '+n+' richtig'
-            : '<b style="color:var(--ink)">'+auf+'</b> von '+n+' bearbeitet'}</div>
-          <button class="btn ${fertig?'ghost':''} blk" data-tag="${i}">${fertig?'Wiederholen':'Starten'}</button>
-        </div>`;
-      }).join('')}</div>`;
-
+  box.innerHTML = `<div class="card liste">${posten.map((p,i)=>{
+      const auf=p.qs.filter(q=>l[q.id]).length, n=p.qs.length;
+      const ok=p.qs.filter(q=>l[q.id]&&l[q.id].ok).length;
+      const fertig = auf===n;
+      const chip = fertig
+        ? `<span class="chip-fertig" title="${ok} von ${n} richtig">erledigt</span>`
+        : (auf ? `<span class="chip-stand">${auf} / ${n}</span>`
+               : `<span class="chip-start">Starten</span>`);
+      return `<button class="zeile tagzeile k-${p.kls}" data-tag="${i}">
+        <span class="pt"></span>
+        <span class="mitte">
+          <span class="nm">${esc(p.name)}</span>
+          <span class="sub">${esc(p.block)} · ${n} ${p.kls==='franzoesisch'?'Aufgaben':'Fragen'}</span>
+          <span class="bar"><i style="width:${Math.round(auf/n*100)}%"></i></span>
+        </span>
+        ${chip}
+      </button>`;
+    }).join('')}</div>`;
   $$('#tagesaufgaben [data-tag]').forEach(b=>b.onclick=()=>start(posten[+b.dataset.tag].cfg));
 }
 
@@ -828,7 +827,7 @@ const AUSWAHL = [
   {id:'schwach',name:'Schwächste Themen', erl:'Bevorzugt Themenfelder mit der niedrigsten Trefferquote.'},
   {id:'mark',   name:'Markierte Fragen',  erl:'Was du im Durchgang mit dem Sternchen versehen hast.'}
 ];
-let TR = {bereiche:new Set(['recht','geschichte','wirtschaft']), auswahl:'alle', anzahl:25, zeit:false};
+let TR = {bereiche:new Set(['recht','geschichte','wirtschaft']), auswahl:'alle', anzahl:25, zeit:false, offen:null};
 
 function trBereichFragen(id){
   const b = BEREICHE.find(x=>x.id===id);
@@ -863,70 +862,77 @@ function renderTrainer(){
   const max=pool.length;
   if(TR.anzahl>max) TR.anzahl=max;
   if(TR.anzahl<1 && max) TR.anzahl=Math.min(25,max);
-  const stufen=[10,25,50,75,100].filter(n=>n<=max);
+  const stufen=[10,25,50].filter(n=>n<max);
   const nurFr = [...TR.bereiche].every(id=>BEREICHE.find(b=>b.id===id).gruppe==='fr');
 
+  /* Drei aufklappbare Zeilen statt vier offener Blöcke: die Seite bleibt auf
+     dem Telefon kurz, und was gewählt ist, steht rechts in der Zeile. */
+  const gewaehlteNamen = BEREICHE.filter(b=>TR.bereiche.has(b.id)).map(b=>b.kurz);
+  const bereichWert = TR.bereiche.size===BEREICHE.length ? 'alle Bereiche'
+    : TR.bereiche.size<=2 ? gewaehlteNamen.join(', ')
+    : TR.bereiche.size+' Bereiche';
+
+  const zeile = (id, name, wert, inhalt) => {
+    const auf = TR.offen===id;
+    return `<button class="grp-zeile${auf?' auf':''}" data-auf="${id}" aria-expanded="${auf}">
+        <span class="gl">${name}</span><span class="gw">${esc(wert)}</span><span class="gp"></span>
+      </button>
+      <div class="grp-inhalt"${auf?'':' hidden'}>${inhalt}</div>`;
+  };
+
   box.innerHTML = `
-    <div class="tr-block">
-      <div class="tr-lab">Bereiche <span>${TR.bereiche.size} von ${BEREICHE.length} gewählt</span></div>
-      <div class="chips">
-        ${['fach','fr'].map(g=>`<div class="chipgruppe">
-          <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
-          ${BEREICHE.filter(b=>b.gruppe===g).map(b=>{
-            const qs=trBereichFragen(b.id);
-            const off=qs.filter(q=>!l[q.id]).length;
-            return `<button class="chip k-${b.kls}${TR.bereiche.has(b.id)?' an':''}" data-bereich="${b.id}">
-              <i></i>${esc(b.kurz)}<em>${qs.length}${off?' · '+off+' offen':''}</em></button>`;
-          }).join('')}
-          <button class="chip alle" data-gruppe="${g}">${
-            BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
-        </div>`).join('')}
-      </div>
+    <div class="card grpliste">
+      ${zeile('bereiche','Bereiche',bereichWert,`
+        <div class="chips">
+          ${['fach','fr'].map(g=>`<div class="chipgruppe">
+            <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
+            ${BEREICHE.filter(b=>b.gruppe===g).map(b=>{
+              const qs=trBereichFragen(b.id);
+              const off=qs.filter(q=>!l[q.id]).length;
+              return `<button class="chip k-${b.kls}${TR.bereiche.has(b.id)?' an':''}" data-bereich="${b.id}">
+                <i></i>${esc(b.kurz)}<em>${qs.length}${off?' · '+off+' offen':''}</em></button>`;
+            }).join('')}
+            <button class="chip alle" data-gruppe="${g}">${
+              BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
+          </div>`).join('')}
+        </div>`)}
+      ${zeile('auswahl','Schwerpunkt',AUSWAHL.find(a=>a.id===TR.auswahl).name.toLowerCase(),`
+        <div class="optionen">
+          ${AUSWAHL.map(a=>`<button class="tr-opt${TR.auswahl===a.id?' an':''}" data-auswahl="${a.id}">
+            <b>${esc(a.name)}</b><span>${esc(a.erl)}</span></button>`).join('')}
+        </div>`)}
+      ${zeile('zeit','Zeit',TR.zeit? (max? mmss(trZeit(TR.anzahl))+' Minuten':'mit Prüfungszeit') : 'ohne Zeitdruck',`
+        <div class="optionen zwei">
+          <button class="tr-opt${TR.zeit?'':' an'}" data-zeit="0"><b>Ohne Zeitdruck</b>
+            <span>In Ruhe nachdenken, keine Uhr. Für das Tagespensum und zum Lernen.</span></button>
+          <button class="tr-opt${TR.zeit?' an':''}" data-zeit="1"><b>Mit Prüfungszeit</b>
+            <span>${nurFr?'Anteilig am Budget von 30 Minuten für 52 Aufgaben.':'Rund 24 Sekunden je Frage, wie im Original.'}
+              ${max?'Für '+TR.anzahl+' Fragen: '+mmss(trZeit(TR.anzahl))+' Min.':''}</span></button>
+        </div>`)}
     </div>
 
-    <div class="tr-block">
-      <div class="tr-lab">Auswahl</div>
-      <div class="optionen">
-        ${AUSWAHL.map(a=>{
-          const merk = TR.auswahl===a.id;
-          return `<button class="tr-opt${merk?' an':''}" data-auswahl="${a.id}">
-            <b>${esc(a.name)}</b><span>${esc(a.erl)}</span></button>`;
-        }).join('')}
-      </div>
-    </div>
-
-    <div class="tr-block">
-      <div class="tr-lab">Umfang <span>${max} Fragen verfügbar</span></div>
+    <div class="card pad umfangkarte">
+      <div class="tr-lab">Umfang <span>${max} ${max===1?'Frage':'Fragen'} verfügbar</span></div>
       ${max ? `<div class="umfang">
           <input type="range" id="tr-schieber" min="1" max="${max}" value="${TR.anzahl}" step="1">
           <output class="tr-zahl tnum" id="tr-zahl">${TR.anzahl}</output>
         </div>
         <div class="stufen">${stufen.map(n=>`<button class="stufe-btn${TR.anzahl===n?' an':''}" data-anzahl="${n}">${n}</button>`).join('')}
-          <button class="stufe-btn${TR.anzahl===max?' an':''}" data-anzahl="${max}">alle ${max}</button></div>`
-        : '<div class="hinweis">Für diese Auswahl gibt es gerade keine Fragen. Wähle mehr Bereiche oder eine andere Auswahl.</div>'}
-    </div>
-
-    <div class="tr-block">
-      <div class="tr-lab">Zeit</div>
-      <div class="optionen zwei">
-        <button class="tr-opt${TR.zeit?'':' an'}" data-zeit="0"><b>Ohne Zeitdruck</b>
-          <span>In Ruhe nachdenken, keine Uhr. Für das Tagespensum und zum Lernen.</span></button>
-        <button class="tr-opt${TR.zeit?' an':''}" data-zeit="1"><b>Mit Prüfungszeit</b>
-          <span>${nurFr?'Anteilig am Budget von 30 Minuten für 52 Aufgaben.':'Rund 24 Sekunden je Frage, wie im Original.'}
-            ${max?'Für '+TR.anzahl+' Fragen: '+mmss(trZeit(TR.anzahl))+' Min.':''}</span></button>
-      </div>
+          <button class="stufe-btn${TR.anzahl===max?' an':''}" data-anzahl="${max}">alle</button></div>`
+        : '<div class="hinweis">Für diese Auswahl gibt es gerade keine Fragen. Wähle mehr Bereiche oder einen anderen Schwerpunkt.</div>'}
     </div>
 
     <div class="tr-start">
+      <button class="btn" id="tr-los" ${max?'':'disabled'}>Training starten</button>
       <div class="tr-zusammen">${max
-        ? `<b>${TR.anzahl} ${TR.anzahl===1?'Frage':'Fragen'}</b> aus ${TR.bereiche.size} ${TR.bereiche.size===1?'Bereich':'Bereichen'}
+        ? `${TR.anzahl} ${TR.anzahl===1?'Frage':'Fragen'} · ${esc(bereichWert)}
            · ${esc(AUSWAHL.find(a=>a.id===TR.auswahl).name.toLowerCase())}
            · ${TR.zeit? mmss(trZeit(TR.anzahl))+' Minuten' : 'ohne Zeitdruck'}`
         : 'Keine Fragen für diese Zusammenstellung'}</div>
-      <button class="btn" id="tr-los" ${max?'':'disabled'}>Training starten</button>
     </div>`;
 
-  $('#tr-note').textContent = max? max+' Fragen passen zur Auswahl' : 'keine passenden Fragen';
+  $$('#trainer [data-auf]').forEach(b=>b.onclick=()=>{
+    TR.offen = TR.offen===b.dataset.auf ? null : b.dataset.auf; renderTrainer(); });
 
   $$('#trainer [data-bereich]').forEach(b=>b.onclick=()=>{
     const id=b.dataset.bereich;
@@ -957,6 +963,15 @@ function renderMenu(){
   document.body.classList.remove('imLauf');
   $('#train-menu').style.display=''; $('#train-run').style.display='none'; $('#train-run').innerHTML='';
   renderTrainer();
+
+  /* Zwei Segmente: die eigene Zusammenstellung und die fertigen Prüfungen. */
+  $$('#tr-seg .seg-btn').forEach(b=>b.onclick=()=>{
+    const s=b.dataset.seg;
+    $$('#tr-seg .seg-btn').forEach(x=>x.classList.toggle('an', x.dataset.seg===s));
+    $('#tr-pane-frei').hidden = s!=='frei';
+    $('#tr-pane-tests').hidden = s!=='tests';
+    window.scrollTo({top:0});
+  });
 
   $('#modes-exam').innerHTML = [
     karte({kicker:'Ernstfall', t:'Vollsimulation Fachtests', p:'Alle drei Fachtests hintereinander, je 25 Fragen in 10 Minuten – wie am 1. September.',
@@ -1164,13 +1179,13 @@ function renderFrage(){
   $(LAUF.mount).innerHTML=`
     <div class="exambar">
       <div class="in wrap">
-        <div style="flex:1">
+        <div class="kopfmitte" style="flex:1">
           <div class="who">${esc(LAUF.cfg.titel)}${mehr?' · Teil '+(LAUF.ti+1)+' von '+LAUF.teile.length:''}</div>
           <div class="what">${esc(kopf)}</div>
         </div>
-        ${LAUF.cfg.zeit?`<div><div class="timerlab">${LAUF.cfg.gesamt?'Restzeit gesamt':'Restzeit'}</div><div class="timer" id="timer">${mmss(LAUF.deadline?(LAUF.deadline-Date.now())/1000:LAUF.cfg.zeit)}</div></div>`
-                      :'<div class="small mute">ohne Zeitdruck</div>'}
-        <button class="btn ghost sm" id="abbruch">Abbrechen</button>
+        ${LAUF.cfg.zeit?`<div class="kopfzeit"><div class="timerlab">${LAUF.cfg.gesamt?'Restzeit gesamt':'Restzeit'}</div><div class="timer" id="timer">${mmss(LAUF.deadline?(LAUF.deadline-Date.now())/1000:LAUF.cfg.zeit)}</div></div>`
+                      :'<div class="kopfzeit small mute">ohne Uhr</div>'}
+        <button class="btn ghost sm" id="abbruch">Abbruch</button>
       </div>
       <div class="trail"><i style="width:${Math.round(beantwortet/n*100)}%"></i></div>
       ${sprungleiste? `<div class="sprung" id="sprung">${T.fragen.map((f,i)=>
@@ -1182,9 +1197,11 @@ function renderFrage(){
         ${q.text? artikelHtml(q, true) : ''}
         <div class="qhead">
           <span class="tag">${esc(marke)}</span>
-          <span class="qnum">Frage ${LAUF.i+1} von ${n}${fr?' · '+q.punkte+(q.punkte===1?' Punkt':' Punkte'):''}</span>
+          <span class="qnum">Frage ${LAUF.i+1} / ${n}${fr?' · '+q.punkte+(q.punkte===1?' Punkt':' Punkte'):''}</span>
           ${LAUF.mark[q.id]?'<span class="markhint">★ markiert</span>':''}
-          <button class="btn ghost sm" id="mark" style="margin-left:auto">${LAUF.mark[q.id]?'★ Markierung aufheben':'☆ Markieren'}</button>
+          <button class="btn ghost sm markbtn" id="mark" style="margin-left:auto"
+            aria-label="${LAUF.mark[q.id]?'Markierung aufheben':'Frage markieren'}"><span class="mk-ic">${
+            LAUF.mark[q.id]?'★':'☆'}</span><span class="mk-txt">${LAUF.mark[q.id]?'Markierung aufheben':'Markieren'}</span></button>
         </div>
         <p class="stem">${stemHtml(q.frage)}</p>
         <div class="opts">${q.optionen.map((o,i)=>
@@ -1192,10 +1209,13 @@ function renderFrage(){
         <div class="qfoot">
           ${LAUF.i===0 && LAUF.ti>0 && LAUF.cfg.gesamt
             ? `<button class="btn ghost" id="prevteil">← Teil ${LAUF.ti}</button>`
-            : `<button class="btn ghost" id="prev" ${LAUF.i===0?'disabled':''}>Zurück</button>`}
+            : `<button class="btn ghost zurueckbtn" id="prev" ${LAUF.i===0?'disabled':''} aria-label="Vorige Frage"
+                 ><span class="zb-ic">‹</span><span class="zb-txt">Zurück</span></button>`}
           <button class="markenav" id="marknav" ${markierte.length?'':'disabled'} title="Zur nächsten markierten Frage">★ ${markierte.length}</button>
-          <span class="small mute tnum" style="margin-left:auto">${beantwortet} von ${n} beantwortet${
-            LAUF.cfg.gesamt? ' · gesamt '+LAUF.teile.flatMap(t=>t.fragen).filter(f=>LAUF.antw[f.id]!==undefined).length+' von '+LAUF.teile.reduce((a,t)=>a+t.fragen.length,0):''}</span>
+          <span class="small mute tnum stand" style="margin-left:auto"
+            ><span class="st-kurz"><b>${LAUF.i+1} / ${n}</b><i>${beantwortet} beantw.</i></span
+            ><span class="st-lang">${beantwortet} von ${n} beantwortet${
+            LAUF.cfg.gesamt? ' · gesamt '+LAUF.teile.flatMap(t=>t.fragen).filter(f=>LAUF.antw[f.id]!==undefined).length+' von '+LAUF.teile.reduce((a,t)=>a+t.fragen.length,0):''}</span></span>
           ${LAUF.i===n-1
             ? `<button class="btn" id="fertig">${LAUF.ti===LAUF.teile.length-1?'Auswerten':'Nächster Teil →'}</button>`
             : `<button class="btn" id="next">Weiter</button>`}
@@ -1333,27 +1353,33 @@ function renderErgebnis(alle, sess){
     <div class="wrap">
       <div class="card score">
         ${ring(sess.quote, farbe)}
-        <div style="flex:1;min-width:240px">
-          <div style="font-size:27px;font-weight:700;color:var(--ink);letter-spacing:-.02em">
+        <div class="scoretext">
+          <div class="scorezahl">
             ${fr? sess.punkte+' von '+sess.maxPunkte+' Punkten' : sess.richtig+' von '+sess.n+' richtig'}</div>
-          <p class="small mute" style="margin:8px 0 ${vollerTest?'10px':'24px'}">
+          <p class="small mute" style="margin:8px 0 0">
             ${fr? sess.richtig+' von '+sess.n+' Fragen richtig · ':''}Bearbeitungszeit ${mmss(sess.dauer)}${sess.n?' · '+(sess.dauer/sess.n).toFixed(1)+' Sekunden pro Frage':''}</p>
-          ${vollerTest?`<div class="verdict ${sess.punkte>=FR_META.bestanden?'ja':'nein'}">${sess.punkte>=FR_META.bestanden?'Bestanden':'Nicht bestanden'} · Grenze ${FR_META.bestanden} von ${FR_META.punkte} Punkten</div><div style="height:16px"></div>`:''}
-          <div style="display:flex;gap:28px;flex-wrap:wrap">${gruppen.map(g=>`
-            <div class="${g.kls}" style="min-width:186px;flex:1 1 186px;max-width:260px">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:9px">
-                <span class="tag" style="font-size:11.5px;white-space:nowrap">${esc(g.name)}</span>
-                <span class="tnum small mute" style="white-space:nowrap">${g.p!==undefined? g.p+'/'+g.mp+' P.' : g.r+'/'+g.n}</span></div>
-              <div class="meter"><i style="width:${pct(g.r,g.n)}%"></i></div></div>`).join('')}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          <button class="btn" id="e-menu">Weiter trainieren</button>
-          <button class="btn ghost" id="e-dash">Zum Dashboard</button>
+          ${vollerTest?`<div class="verdict ${sess.punkte>=FR_META.bestanden?'ja':'nein'}" style="margin-top:14px">${sess.punkte>=FR_META.bestanden?'Bestanden':'Nicht bestanden'} · Grenze ${FR_META.bestanden} von ${FR_META.punkte} Punkten</div>`:''}
         </div>
       </div>
+
+      <div class="card liste teilliste">${gruppen.map(g=>`
+        <div class="zeile ${g.kls}">
+          <span class="pt"></span>
+          <span class="mitte">
+            <span class="nm">${esc(g.name)}</span>
+            <span class="bar"><i style="width:${pct(g.r,g.n)}%"></i></span>
+          </span>
+          <span class="wert tnum">${g.p!==undefined? g.p+'/'+g.mp : g.r+'/'+g.n}</span>
+        </div>`).join('')}</div>
+
       <div class="sec">
         <div class="sec-h"><h2>Durchsicht</h2><button class="link note" id="e-all">Alle aufklappen</button></div>
         <div id="revlist">${rows}</div>
+      </div>
+
+      <div class="ergfuss">
+        <button class="btn ghost" id="e-menu">Weiter üben</button>
+        <button class="btn" id="e-dash">Übersicht</button>
       </div>
     </div>`;
   M('#e-menu').onclick=()=>{ LAUF=null; renderMenu(); };
@@ -2602,8 +2628,44 @@ async function starten(){
 $('#marke-heim').onclick = (e)=>{ e.preventDefault(); if(PROFIL) go('dash'); };
 window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); });
 
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+/* =====================================================================
+   AKTUALISIERUNG
+   Auf dem Home-Bildschirm hält iOS die alten Dateien hartnäckig fest. Der
+   Dienst wird deshalb bei jedem Start und bei jeder Rückkehr in den
+   Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
+   genau einmal nach.
+   ===================================================================== */
+const FASSUNG = 'tt-2026-08-03-8';
+let SW_REG = null, SW_NEULADEN = false;
+
+async function dienstStarten(){
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    SW_REG = await navigator.serviceWorker.register('sw.js', {updateViaCache:'none'});
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+      if(SW_NEULADEN) return;
+      SW_NEULADEN = true;
+      location.reload();
+    });
+    nachAktualisierungSehen();
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) nachAktualisierungSehen(); });
+    setInterval(nachAktualisierungSehen, 30*60*1000);
+  }catch(e){}
 }
+
+async function nachAktualisierungSehen(melden){
+  if(!SW_REG){ if(melden) toast('Kein Zwischenspeicher aktiv.'); return; }
+  try{
+    await SW_REG.update();
+    const neu = SW_REG.waiting || SW_REG.installing;
+    if(SW_REG.waiting){
+      SW_REG.waiting.postMessage({typ:'uebernehmen'});
+      if(melden) toast('Neue Fassung wird geladen …');
+    }else if(melden){
+      toast(neu ? 'Neue Fassung wird geladen …' : 'Du hast bereits die neueste Fassung.');
+    }
+  }catch(e){ if(melden) toast('Prüfung nicht möglich – keine Verbindung.'); }
+}
+dienstStarten();
 
 starten();

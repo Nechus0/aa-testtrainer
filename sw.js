@@ -1,6 +1,6 @@
 /* Service Worker: haelt die App offline lauffaehig.
    Programmdateien kommen aus dem Zwischenspeicher, alles andere aus dem Netz. */
-const VERSION = 'tt-2026-08-03-6';
+const VERSION = 'tt-2026-08-03-8';
 const SCHALE = [
   './',
   './index.html',
@@ -22,6 +22,11 @@ self.addEventListener('activate', (e) => {
       .then((namen) => Promise.all(namen.filter((n) => n !== VERSION).map((n) => caches.delete(n))))
       .then(() => self.clients.claim()),
   );
+});
+
+/* Die Seite darf den wartenden Dienst sofort übernehmen lassen. */
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.typ === 'uebernehmen') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (e) => {
