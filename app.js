@@ -414,7 +414,7 @@ function schaleBauen(){
       <div class="eyebrow">Üben</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Trainer</h1>
-        <p class="lead">Entweder selbst zusammenstellen – Bereiche, Schwerpunkt, Zeit und Umfang – oder einen der vorgegebenen Tests im Originalformat starten.</p>
+        <p class="lead">Selbst zusammenstellen oder einen vorgegebenen Test im Originalformat starten.</p>
       </div></div>
     </div>
     <div class="wrap">
@@ -442,7 +442,7 @@ function schaleBauen(){
       <div class="eyebrow">Bestand</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Fragen</h1>
-        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung – gefiltert nach Stand, Prüfungsteil und Abschnitt.</p>
+        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung.</p>
       </div></div>
     </div>
     <div class="wrap">
@@ -470,7 +470,7 @@ function schaleBauen(){
       <div class="eyebrow">Konto und Verwaltung</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Mehr</h1>
-        <p class="lead">Zugang, Installation auf dem Telefon, Fortschritt – und für Administratoren Quellen und Nutzer.</p>
+        <p class="lead">Konto, Quellen und Fortschritt.</p>
       </div></div>
     </div>
     <div class="wrap"><div class="mehrgitter" id="mehrgitter"></div></div>`;
@@ -480,7 +480,7 @@ function schaleBauen(){
       <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Tägliche Fragen</h1>
-        <p class="lead">Wann der letzte Abschnitt kam, wann der nächste kommt und was bisher zusammengekommen ist.</p>
+        <p class="lead">Wann der letzte Abschnitt kam und wann der nächste kommt.</p>
       </div></div>
     </div>
     <div class="wrap"><div id="ts-inhalt"></div></div>`;
@@ -490,7 +490,7 @@ function schaleBauen(){
       <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Quellen</h1>
-        <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst. Der Volltext liegt in der Datenbank: die Tagesaufgabe sucht darin nach Belegstellen und schreibt Herausgeber und Titel in die Erläuterung jeder Frage. Jeder Zugang darf eigene Dokumente aufnehmen und Quellen wieder entfernen – der Bestand ist gemeinsam, gelöschte Volltexte sind weg.</p>
+        <p class="lead">Grundlage der täglich erzeugten Fragen. Jeder Zugang kann Dokumente aufnehmen und entfernen – der Bestand ist gemeinsam.</p>
       </div></div>
     </div>
     <div class="wrap">
@@ -506,7 +506,8 @@ function schaleBauen(){
           <option value="ohnetext">ohne Volltext</option></select></label>
         <button class="btn sm" id="qu-neu">Quellen aufnehmen</button>
       </div>
-      <div id="qu-stat" class="small mute" style="margin-bottom:18px"></div>
+      <div id="qu-stat" class="small mute" style="margin-bottom:12px"></div>
+      <div id="qu-schalter" class="small" style="margin-bottom:14px"></div>
       <div id="qu-liste"></div>
     </div>`;
 
@@ -515,7 +516,7 @@ function schaleBauen(){
       <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Nutzer</h1>
-        <p class="lead">Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.</p>
+        <p class="lead">Konten, Rollen und Einladungslinks.</p>
       </div></div>
     </div>
     <div class="wrap">
@@ -768,10 +769,20 @@ function chart(){
   $('#chartleg').innerHTML=leg;
 }
 
+/* Themenfeld einer Frage = ihr Oberfeld im Lehrplan. Fragen, deren Thema kein
+   Lehrplanfeld nennt, kämen sonst als eigene Rubrik neben die echten Felder –
+   zwei Gliederungsebenen nebeneinander. Sie laufen unter „Weitere Themen“. */
+function planOberfelder(){
+  const m={};
+  for(const s of (LP_STAND||[])) (m[s.kategorie]=m[s.kategorie]||new Set()).add(s.oberfeld);
+  return m;
+}
 function themenfeld(q){
   const t=(q.thema||'').trim();
   if(!t) return q.kategorie==='franzoesisch' ? (FR_TEIL[q.teil]?.kurz||'Französisch') : 'Ohne Thema';
-  return (t.split(/\s[–—-]\s/)[0]||t).trim();
+  const ober = (t.split(/\s[–—-]\s/)[0]||t).trim();
+  const bekannt = planOberfelder()[lpTeil(q)];
+  return (bekannt && bekannt.size && !bekannt.has(ober)) ? SONSTIGE : ober;
 }
 let WEAK_ALLE=false;
 function weak(){
@@ -809,13 +820,20 @@ function weak(){
   };
 }
 
+/* Letzte Durchgänge als Liste, nicht als Tabelle: vier Spalten brechen auf dem
+   Telefon um und der Titel wird unleserlich schmal. */
 function sessionsListe(){
   const rows=S.sessions.slice(-9).reverse();
   $('#sessions').innerHTML = rows.length
-    ? `<div class="tabelle"><table style="min-width:300px"><thead><tr><th style="width:60px">Datum</th><th>Durchgang</th><th style="width:76px">Ergebnis</th><th style="width:62px">Zeit</th></tr></thead><tbody>${
-        rows.map(s=>`<tr><td class="mute tnum">${datumKurz(s.datum)}</td><td>${esc(s.titel)}</td>
-        <td class="tnum" style="font-weight:700;color:${s.quote>=70?'var(--ok)':s.quote>=50?'var(--gold)':'var(--bad)'}">${s.richtig}/${s.n}</td>
-        <td class="tnum mute">${mmss(s.dauer)}</td></tr>`).join('')}</tbody></table></div>`
+    ? `<div class="liste">${rows.map(s=>{
+        const farbe = s.quote>=70?'var(--ok)':s.quote>=50?'var(--gold)':'var(--bad)';
+        return `<div class="zeile durchgangzeile">
+          <span class="mitte">
+            <span class="nm">${esc(s.titel)}</span>
+            <span class="sub">${datumKurz(s.datum)} · ${mmss(s.dauer)} Min</span>
+          </span>
+          <span class="wert tnum" style="color:${farbe}">${s.richtig}<i>/${s.n}</i></span>
+        </div>`; }).join('')}</div>`
     : '<div class="empty">Noch kein Durchgang abgeschlossen.</div>';
 }
 
@@ -1535,6 +1553,7 @@ const LP_NAME = {recht:'Völker-, Europa- und Staatsrecht', geschichte:'Geschich
   wirtschaft:'Wirtschaft', textverstaendnis:'Textverständnis', wortschatz:'Wortschatz', grammatik:'Grammatik'};
 const LP_KLS = {recht:'recht', geschichte:'geschichte', wirtschaft:'wirtschaft',
   textverstaendnis:'franzoesisch', wortschatz:'franzoesisch', grammatik:'franzoesisch'};
+const SONSTIGE = 'Weitere Themen';   /* Sammelrubrik für Fragen ohne Lehrplanfeld */
 let LP_WEG = [];          /* Navigationspfad: [] | [kategorie] | [kategorie, oberfeld] */
 let LP_MEHR = 15;         /* wie viele Zeilen je Ebene sichtbar sind */
 let LP_STAND = null;      /* Zeilen aus lehrplan_stand, einmal geladen */
@@ -1566,9 +1585,18 @@ function lpBaum(){
     const f = holen(s.kategorie, s.oberfeld, s.unterfeld);
     f.imPlan = true; f.gewicht = s.gewicht; f.thema = s.thema;
   }
+  /* Welche Oberfelder der Lehrplan kennt. Fragen aus den Originalprüfungen und
+     den ersten Tagen tragen teils ein Thema ohne Oberfeld – die stünden sonst
+     als eigene Rubrik neben „Geschichte“ und „Außenpolitik“ und sähen aus wie
+     eine zweite Gliederung. Sie kommen darum gesammelt unter „Weitere Themen“. */
+  const planFelder = planOberfelder();
+
   for(const q of ALLES){
-    const [ober, unter] = lpTeile(q.thema);
-    const f = holen(lpTeil(q), ober, unter);
+    const teil = lpTeil(q);
+    let [ober, unter] = lpTeile(q.thema);
+    const bekannt = planFelder[teil];
+    if(bekannt && bekannt.size && !bekannt.has(ober)){ unter = (q.thema||ober).trim(); ober = SONSTIGE; }
+    const f = holen(teil, ober, unter);
     if(!f.thema) f.thema = q.thema || ober;
     f.bestand++; f.ids.push(q.id);
     const a = l[q.id];
@@ -1579,7 +1607,12 @@ function lpBaum(){
     t.bestand=t.bearbeitet=t.richtig=t.felder_n=t.felder_leer=0; t.ids=[];
     for(const o of Object.values(t.felder)){
       o.bestand=o.bearbeitet=o.richtig=o.felder_n=o.felder_leer=0; o.ids=[];
-      for(const f of Object.values(o.felder)){
+      /* Ein Oberfeld mit genau einem gleichnamigen Unterfeld ist selbst schon
+         das Themenfeld – dann führt ein weiterer Schritt auf dieselbe Zeile. */
+      const kinder = Object.values(o.felder);
+      o.blatt = kinder.length===1 && kinder[0].name===o.name;
+      if(o.blatt) o.imPlan = kinder[0].imPlan;
+      for(const f of kinder){
         o.bestand+=f.bestand; o.bearbeitet+=f.bearbeitet; o.richtig+=f.richtig;
         o.felder_n++; if(!f.bestand) o.felder_leer++; o.ids.push(...f.ids);
       }
@@ -1590,14 +1623,21 @@ function lpBaum(){
   return baum;
 }
 
+async function lehrplanLaden(){
+  if(LP_STAND) return true;
+  const {data} = await sb.from('lehrplan_stand')
+    .select('id,kategorie,oberfeld,unterfeld,thema,gewicht').order('id');
+  if(!data) return false;
+  LP_STAND = data;
+  return true;
+}
+
 async function renderLehrplan(){
   const box=$('#lehrplan'); if(!box) return;
   if(!LP_STAND){
     box.innerHTML='<div class="card"><div class="empty">Wird geladen …</div></div>';
-    const {data} = await sb.from('lehrplan_stand')
-      .select('id,kategorie,oberfeld,unterfeld,thema,gewicht').order('id');
-    if(!data){ box.innerHTML='<div class="card"><div class="empty">Lehrplan konnte nicht geladen werden.</div></div>'; return; }
-    LP_STAND = data;
+    if(!await lehrplanLaden()){
+      box.innerHTML='<div class="card"><div class="empty">Lehrplan konnte nicht geladen werden.</div></div>'; return; }
   }
   lpZeichnen();
 }
@@ -1629,7 +1669,9 @@ function lpZeichnen(){
     titel = oberWahl;
     unterzeile = `${o.bearbeitet||0} von ${o.bestand||0} Fragen bearbeitet · ${o.felder_n||0} Themenfelder`;
   }
-  zeilen.sort((a,b)=> b.bestand-a.bestand || a.name.localeCompare(b.name,'de'));
+  /* „Weitere Themen“ steht immer am Ende – es ist keine Rubrik des Lehrplans. */
+  zeilen.sort((a,b)=> (a.name===SONSTIGE)-(b.name===SONSTIGE)
+                   || b.bestand-a.bestand || a.name.localeCompare(b.name,'de'));
 
   const zeige = zeilen.slice(0, LP_MEHR);
   const quote = (z)=> z.bearbeitet ? Math.round(z.richtig/z.bearbeitet*100) : null;
@@ -1657,8 +1699,8 @@ function lpZeichnen(){
           <span class="nm" title="${esc(z.name)}">${esc(z.name)}${
             z.blatt && z.imPlan===false ? ' <span class="lp-frei">nicht im Plan</span>' : ''}</span>
           <span class="bar" title="${z.bearbeitet} von ${z.bestand} bearbeitet"><i style="width:${p}%"></i></span>
-          <span class="qt tnum" style="width:74px">${z.bearbeitet}/${z.bestand}</span>
-          <span class="ct" style="width:96px">${
+          <span class="qt tnum">${z.bearbeitet}/${z.bestand}</span>
+          <span class="ct">${
             z.bestand===0 ? 'noch keine Frage'
               : (q===null ? 'nicht bearbeitet' : q+' % richtig')}</span>
           ${z.blatt? '' : '<span class="lp-pfeil">›</span>'}
@@ -1669,14 +1711,11 @@ function lpZeichnen(){
              Math.min(15, zeilen.length-zeige.length)} von ${zeilen.length-zeige.length} anzeigen</button></div>`
         : (LP_MEHR>15 ? `<div class="morerow"><button class="link" id="lp-weniger">Wieder einklappen</button></div>`:'')}
       <div class="feld xs mute" style="border-top:1px solid var(--line-soft);border-bottom:0">
-        <span class="nm" style="white-space:normal">${
-          LP_WEG.length<2
-            ? 'Der Lehrplan beschreibt, was bis zur Prüfung im Bestand sein muss. Tippe einen Bereich an, um bis auf das einzelne Themenfeld zu kommen.'
-            : 'Die erste Zahl ist, was du bearbeitet hast, die zweite der Bestand. Felder ohne Frage füllt die Tagesaufgabe nach und nach auf. Geübt wird im Trainer.'}</span>
+        <span class="nm" style="white-space:normal">bearbeitet / im Bestand</span>
       </div>
     </div>`;
 
-  $('#lp-note').textContent = LP_WEG.length ? 'dein Stand in diesem Bereich' : 'dein Stand über den ganzen Lehrplan';
+  $('#lp-note').textContent = LP_WEG.length ? 'in diesem Bereich' : 'ganzer Lehrplan';
 
   $$('#lehrplan [data-lp-tiefer]').forEach(e=>e.onclick=(ev)=>{
     if(ev.target.closest('button')) return;
@@ -1942,17 +1981,26 @@ function quellenListe(){
         <div>${g.items.map(quellenZeile).join('')}</div>
       </details>`;
     }).join('')
-    + `<div class="small mute" style="margin-top:18px;display:flex;gap:18px;flex-wrap:wrap">
-         <button class="link" id="qu-alle" style="font-size:14px">Alle aufklappen</button>
-         <button class="link" id="qu-keine" style="font-size:14px">Alle zuklappen</button></div>`
     : '<div class="card"><div class="empty">Keine Quelle passt zu diesen Filtern.</div></div>';
+
+  /* Ein Schalter über der Liste statt zwei darunter: nach dem Aufklappen lag
+     „Alle zuklappen“ am Ende einer sehr langen Seite. */
+  const kopf=$('#qu-schalter');
+  if(kopf){
+    const offen = gruppen.length && gruppen.every(g=>QU_OFFEN.has(g.kat.schluessel));
+    kopf.innerHTML = gruppen.length
+      ? `<button class="link" id="qu-klapp">${offen?'Alle zuklappen':'Alle aufklappen'}</button>` : '';
+    const kl=$('#qu-klapp');
+    if(kl) kl.onclick=()=>{
+      if(offen) QU_OFFEN.clear(); else gruppen.forEach(g=>QU_OFFEN.add(g.kat.schluessel));
+      quellenListe();
+    };
+  }
 
   $$('#qu-liste .gebiet').forEach(d2=>d2.ontoggle=()=>{
     if(d2.open) QU_OFFEN.add(d2.dataset.gebiet); else QU_OFFEN.delete(d2.dataset.gebiet);
   });
-  const alle=$('#qu-alle'), keine=$('#qu-keine'), frei=$('#qu-frei');
-  if(alle) alle.onclick=()=>{ QU_KATS.forEach(k2=>QU_OFFEN.add(k2.schluessel)); quellenListe(); };
-  if(keine) keine.onclick=()=>{ QU_OFFEN.clear(); quellenListe(); };
+  const frei=$('#qu-frei');
   if(frei) frei.onclick=()=>{
     $('#qu-suche').value=''; $('#qu-kat').value=''; $('#qu-datei').value='';
     if($('#qu-stufe')) $('#qu-stufe').value=''; quellenListe();
@@ -2553,14 +2601,9 @@ function renderTagesstand(){
     <div class="sec">
       <div class="sec-h"><h2>Wie der Lauf arbeitet</h2></div>
       <div class="card pad">
-        <p class="small" style="margin:0 0 12px">Jeden Morgen um 6 Uhr Berliner Zeit erzeugt eine geplante
-          Aufgabe in der Cloud einen Abschnitt <b>Tag N</b>: 75 Fachtestfragen (25 je Kategorie) und einen
-          vollständigen Sprachtestsatz (3 Artikel, 8 + 22 + 22 Aufgaben).</p>
-        <p class="small" style="margin:0 0 12px">Welche Themenfelder drankommen, bestimmt der Lehrplan – die
-          Aufgabe nimmt die Felder mit dem größten Rückstand. Jede Frage wird an einer Textstelle aus dem
-          Quellenvolltext belegt; Herausgeber und Titel stehen in der Erläuterung.</p>
-        <p class="small mute" style="margin:0">Die Aufgabe ergänzt ausschließlich. Bestehende Abschnitte –
-          besonders die Originalprüfungen und die amtlichen Musteraufgaben – werden nie verändert.</p>
+        <p class="small" style="margin:0">Jeden Morgen um 6 Uhr Berliner Zeit kommt ein neuer Abschnitt
+          <b>Tag N</b>: 75 Fachtestfragen und ein vollständiger Sprachtestsatz. Welche Themenfelder
+          drankommen, bestimmt der Lehrplan. Bestehende Abschnitte bleiben unverändert.</p>
       </div>
     </div>`;
 
@@ -2765,6 +2808,9 @@ async function starten(){
   await ladeFortschritt();
   warteschlangeAbarbeiten();
   sb.rpc('aktiv_melden').then(()=>{}, ()=>{});
+  /* Der Lehrplan bestimmt, wie Themenfelder gruppiert werden – auch auf der
+     Übersicht. Deshalb gleich mitladen und die Übersicht danach auffrischen. */
+  lehrplanLaden().then(ok=>{ if(ok && ANSICHT==='dash') renderDash(); }, ()=>{});
 
   $('#laden').classList.add('weg');
   renderMenu();
@@ -2788,7 +2834,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-04-2';
+const FASSUNG = 'tt-2026-08-04-4';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
