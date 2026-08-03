@@ -30,6 +30,7 @@ const PRUEFUNG = new Date('2026-09-01T09:00:00');
 const LTR = ['A','B','C','D'];
 const CACHE_FRAGEN = 'aa_fragen_cache_v2';
 const CACHE_WARTE   = 'aa_warteschlange_v1';
+const CACHE_LAUF    = 'aa_lauf_v1';
 
 /* ---------- Laufzeitzustand ---------- */
 let PROFIL = null;                       // Zeile aus public.profile
@@ -377,6 +378,7 @@ function schaleBauen(){
         <span class="n" id="cd-n">–</span>
         <span class="t"><b id="cd-u">Tage bis zur Prüfung</b><i>Dienstag, 1. September 2026</i></span>
       </div>
+      <div id="offener-lauf"></div>
       <div class="sec" style="margin-top:0">
         <div class="sec-h"><h2>Heute</h2><span class="note" id="tag-note"></span></div>
         <div id="tagesaufgaben"></div>
@@ -653,7 +655,32 @@ function renderDash(){
 
   const serie=$('#kopf-serie');
   if(serie){ const st=streak(); serie.textContent = st? st+(st===1?' Tag Serie':' Tage Serie') : ''; }
+  offenenLaufZeigen();
   tagesaufgaben(); chart(); weak(); sessionsListe();
+}
+
+/* Hinweis auf einen Durchgang, der beim letzten Mal nicht zu Ende kam. */
+function offenenLaufZeigen(){
+  const box=$('#offener-lauf'); if(!box) return;
+  const s=laufGesichert();
+  if(!s){ box.innerHTML=''; return; }
+  box.innerHTML=`
+    <div class="offenerlauf">
+      <div class="ol-text">
+        <b>Unterbrochener Durchgang</b>
+        <span>${esc(s.cfg.titel||'Übung')} · ${s.beantwortet} von ${s.gesamt} beantwortet · ${
+          new Date(s.ts).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} Uhr</span>
+      </div>
+      <div class="ol-akt">
+        <button class="btn ghost sm" id="ol-weg">Verwerfen</button>
+        <button class="btn sm" id="ol-weiter">Fortsetzen</button>
+      </div>
+    </div>`;
+  $('#ol-weiter').onclick=()=>laufFortsetzen();
+  $('#ol-weg').onclick=()=>{
+    if(!confirm('Den unterbrochenen Durchgang verwerfen? Die bisherigen Antworten gehen verloren.')) return;
+    laufVergessen(); offenenLaufZeigen(); toast('Verworfen.');
+  };
 }
 
 /* ---------- Fragen des Tages ----------
@@ -1128,7 +1155,78 @@ function baueTeile(cfg){
   return [];
 }
 
+/* =====================================================================
+   UNTERBROCHENE DURCHGÄNGE
+   Ein Durchgang wird erst am Ende gespeichert. Bis dahin steht er nur im
+   Arbeitsspeicher – und den räumt das Telefon aus, sobald die App länger im
+   Hintergrund liegt oder die Seite neu lädt. Deshalb legen wir nach jedem
+   Schritt eine Kopie im Gerätespeicher ab und bieten sie beim nächsten Start
+   zum Fortsetzen an.
+
+   Nur Durchgänge ohne Zeitdruck: eine Prüfungssimulation mit laufender Uhr
+   lässt sich nach einer Unterbrechung nicht ehrlich fortsetzen.
+   ===================================================================== */
+function laufSichern(){
+  if(!LAUF || LAUF.phase!=='lauf' || LAUF.cfg.zeit) return;
+  try{
+    localStorage.setItem(CACHE_LAUF, JSON.stringify({
+      ts: Date.now(),
+      nutzer: PROFIL && PROFIL.id,
+      fassung: FASSUNG,
+      cfg: LAUF.cfg,
+      teile: LAUF.teile.map(t=>t.fragen.map(f=>f.id)),
+      ti: LAUF.ti, i: LAUF.i,
+      antw: LAUF.antw, mark: LAUF.mark,
+      start: LAUF.start
+    }));
+  }catch(e){}
+}
+function laufVergessen(){ try{ localStorage.removeItem(CACHE_LAUF); }catch(e){} }
+
+/* Gibt den gesicherten Durchgang zurück – oder null, wenn er nicht zu diesem
+   Konto gehört, zu alt ist oder die Fragen inzwischen fehlen. */
+function laufGesichert(){
+  let s;
+  try{ s = JSON.parse(localStorage.getItem(CACHE_LAUF)||'null'); }catch(e){ return null; }
+  if(!s || !Array.isArray(s.teile) || !s.teile.length) return null;
+  if(!PROFIL || s.nutzer !== PROFIL.id) return null;
+  if(Date.now() - s.ts > 24*3600*1000){ laufVergessen(); return null; }
+  /* Jede Frage muss noch im Bestand sein, sonst stimmen Zähler und Wertung nicht. */
+  for(const ids of s.teile) for(const id of ids) if(!BY_ID[id]){ laufVergessen(); return null; }
+  const gesamt = s.teile.reduce((a,ids)=>a+ids.length, 0);
+  const beantwortet = Object.keys(s.antw||{}).length;
+  if(!gesamt || beantwortet>=gesamt){ laufVergessen(); return null; }
+  return {...s, gesamt, beantwortet};
+}
+
+function laufFortsetzen(){
+  const s = laufGesichert();
+  if(!s){ toast('Der unterbrochene Durchgang ist nicht mehr verfügbar.'); renderDash(); return; }
+  /* zeit:0 erzwingen – fortgesetzt wird ausdrücklich ohne Uhr. */
+  LAUF = {cfg:{...s.cfg, zeit:0}, view:'train', mount:'#train-run',
+          teile: s.teile.map(ids=>({fragen: ids.map(id=>BY_ID[id])})),
+          ti: Math.min(s.ti||0, s.teile.length-1),
+          i: 0, antw: s.antw||{}, mark: s.mark||{},
+          start: s.start || Date.now(), phase:'lauf'};
+  LAUF.i = Math.min(s.i||0, LAUF.teile[LAUF.ti].fragen.length-1);
+  $('#train-menu').style.display='none';
+  $('#train-run').style.display='';
+  document.body.classList.add('imLauf');
+  TEXT_ZU=false; TEXT_VOLL=false; TEXT_AKT=null;
+  ANSICHT='train'; navBauen();
+  $$('.view').forEach(x=>x.classList.toggle('on', x.id==='v-train'));
+  window.scrollTo({top:0});
+  renderFrage();
+  toast('Weiter, wo du aufgehört hast.');
+}
+
+/* Zusätzlich sichern, wenn die App in den Hintergrund geht – dort kann iOS
+   sie beenden, ohne dass noch Programmcode läuft. */
+addEventListener('pagehide', laufSichern);
+addEventListener('visibilitychange', ()=>{ if(document.hidden) laufSichern(); });
+
 function start(cfg){
+  laufVergessen(); SPRUNG_LINKS = 0;
   const teile=baueTeile(cfg).filter(t=>t.fragen.length);
   if(!teile.length){ toast('Für diesen Durchgang sind gerade keine Fragen vorhanden.'); return; }
   const vorMark={};
@@ -1161,10 +1259,13 @@ function starteTimer(){
   },250);
 }
 
-let WEITER_TIMER = null;   /* kurze Pause zwischen Wahl und nächster Frage */
+let WEITER_TIMER = null;    /* kurze Pause zwischen Wahl und nächster Frage */
+let SPRUNG_LINKS = 0;       /* Scrollstand der Zahlenleiste über das Neuzeichnen hinweg */
 
 function renderFrage(){
   if(WEITER_TIMER){ clearTimeout(WEITER_TIMER); WEITER_TIMER=null; }
+  const alteLeiste = M('#sprung');
+  if(alteLeiste) SPRUNG_LINKS = alteLeiste.scrollLeft;
   const T=aktTeil(), q=T.fragen[LAUF.i], n=T.fragen.length;
   const fr=q.kategorie==='franzoesisch';
   const kls = fr? 'k-franzoesisch' : 'k-'+q.kategorie;
@@ -1260,10 +1361,28 @@ function renderFrage(){
     renderFrage();
   };
 
-  /* Sprungleiste: Klicks binden und die aktuelle Frage mittig nachführen. */
+  /* Sprungleiste: Klicks binden und die aktuelle Frage mittig nachführen.
+     Die Leiste wird bei jedem Neuzeichnen neu aufgebaut und stünde deshalb
+     wieder ganz links – von dort aus sah jedes Weiterblättern wie ein Sprung
+     aus. Erst den alten Stand wiederherstellen, dann sanft nachrücken. */
   MM('#sprung button').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
   const leiste=M('#sprung'), akt=leiste && leiste.children[LAUF.i];
-  if(akt) leiste.scrollTo({left:Math.max(0, akt.offsetLeft - leiste.clientWidth/2 + akt.offsetWidth/2), behavior:'smooth'});
+  if(leiste && akt){
+    leiste.scrollLeft = SPRUNG_LINKS;            /* dort weitermachen, wo es stand */
+    const rand = 2 * akt.offsetWidth;            /* zwei Zahlen Luft zum Rand */
+    const links = akt.offsetLeft - rand;
+    const rechts = akt.offsetLeft + akt.offsetWidth + rand - leiste.clientWidth;
+    /* Nur nachrücken, wenn die aktuelle Zahl sonst an den Rand liefe. Steht sie
+       bequem im Bild, bleibt die Leiste stehen – kein Scrollen bei jedem Tipp. */
+    let ziel = SPRUNG_LINKS;
+    if(SPRUNG_LINKS > links)  ziel = links;
+    if(SPRUNG_LINKS < rechts) ziel = rechts;
+    ziel = Math.max(0, Math.min(leiste.scrollWidth - leiste.clientWidth, ziel));
+    if(Math.abs(ziel - leiste.scrollLeft) > 1) leiste.scrollTo({left:ziel, behavior:'smooth'});
+    SPRUNG_LINKS = ziel;
+  }
+
+  laufSichern();
 
   const mn=M('#marknav');
   if(mn && markierte.length) mn.onclick=()=>{
@@ -1289,7 +1408,7 @@ function renderFrage(){
     teilFertig();
   };
   M('#abbruch').onclick=()=>{ if(confirm('Durchgang abbrechen? Die Antworten werden nicht gespeichert.')){
-    clearInterval(TICK); LAUF=null; renderMenu(); } };
+    clearInterval(TICK); laufVergessen(); SPRUNG_LINKS=0; LAUF=null; renderMenu(); } };
 }
 
 function teilFertig(){
@@ -1300,6 +1419,8 @@ function teilFertig(){
 
 async function auswerten(){
   clearInterval(TICK);
+  laufVergessen();          /* der Durchgang ist zu Ende, die Kopie wird nicht mehr gebraucht */
+  SPRUNG_LINKS = 0;
   const dauer=(Date.now()-LAUF.start)/1000, alle=LAUF.teile.flatMap(t=>t.fragen);
   const d=heute(), ts=new Date().toISOString();
   let richtig=0, punkte=0, maxPunkte=0;
@@ -2667,7 +2788,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-04-1';
+const FASSUNG = 'tt-2026-08-04-2';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
