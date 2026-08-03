@@ -963,6 +963,9 @@ function renderMenu(){
   document.body.classList.remove('imLauf');
   $('#train-menu').style.display=''; $('#train-run').style.display='none'; $('#train-run').innerHTML='';
   renderTrainer();
+  /* Der Durchgang ist vorbei: eine zurückgestellte Fassung darf jetzt kommen. */
+  if(SW_SPAETER){ SW_SPAETER=false; SW_NEULADEN=true; location.reload(); return; }
+  nachAktualisierungSehen();
 
   /* Zwei Segmente: die eigene Zusammenstellung und die fertigen Prüfungen. */
   $$('#tr-seg .seg-btn').forEach(b=>b.onclick=()=>{
@@ -1158,7 +1161,10 @@ function starteTimer(){
   },250);
 }
 
+let WEITER_TIMER = null;   /* kurze Pause zwischen Wahl und nächster Frage */
+
 function renderFrage(){
+  if(WEITER_TIMER){ clearTimeout(WEITER_TIMER); WEITER_TIMER=null; }
   const T=aktTeil(), q=T.fragen[LAUF.i], n=T.fragen.length;
   const fr=q.kategorie==='franzoesisch';
   const kls = fr? 'k-franzoesisch' : 'k-'+q.kategorie;
@@ -1237,7 +1243,16 @@ function renderFrage(){
       </div>
     </div></div>`;
 
-  MM('.opts .opt').forEach(b=>b.onclick=()=>{ LAUF.antw[q.id]=+b.dataset.o; if(LAUF.i<n-1) LAUF.i++; renderFrage(); });
+  /* Die Wahl kurz stehen lassen, bevor die nächste Frage kommt. Vorher sprang
+     das Bild sofort weiter – man sah die eigene Antwort nur bei der letzten
+     Frage und wusste nicht, ob der Tipp angekommen war. */
+  MM('.opts .opt').forEach(b=>b.onclick=()=>{
+    if(WEITER_TIMER) return;                       /* ein Tipp genügt */
+    LAUF.antw[q.id] = +b.dataset.o;
+    if(LAUF.i >= n-1){ renderFrage(); return; }
+    MM('.opts .opt').forEach(x=>x.classList.toggle('sel', x===b));
+    WEITER_TIMER = setTimeout(()=>{ WEITER_TIMER=null; LAUF.i++; renderFrage(); }, 280);
+  });
   MM('.pg').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
   M('#mark').onclick=()=>{
     LAUF.mark[q.id]=!LAUF.mark[q.id];
@@ -2652,8 +2667,8 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-03-10';
-let SW_REG = null, SW_NEULADEN = false;
+const FASSUNG = 'tt-2026-08-04-1';
+let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
   if(!('serviceWorker' in navigator)) return;
@@ -2661,6 +2676,9 @@ async function dienstStarten(){
     SW_REG = await navigator.serviceWorker.register('sw.js', {updateViaCache:'none'});
     navigator.serviceWorker.addEventListener('controllerchange', ()=>{
       if(SW_NEULADEN) return;
+      /* Niemals mitten im Durchgang neu laden: die Antworten stehen bis zur
+         Auswertung nur im Arbeitsspeicher und wären sonst verloren. */
+      if(LAUF){ SW_SPAETER = true; return; }
       SW_NEULADEN = true;
       location.reload();
     });
@@ -2672,6 +2690,9 @@ async function dienstStarten(){
 
 async function nachAktualisierungSehen(melden){
   if(!SW_REG){ if(melden) toast('Kein Zwischenspeicher aktiv.'); return; }
+  /* Während eines Durchgangs und in der Durchsicht bleibt die Fassung stehen.
+     Eine neue Fassung würde die Seite neu laden und den Lauf mitnehmen. */
+  if(LAUF){ if(melden) toast('Erst nach dem Durchgang – sonst gingen die Antworten verloren.'); return; }
   try{
     await SW_REG.update();
     const neu = SW_REG.waiting || SW_REG.installing;
