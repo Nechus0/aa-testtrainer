@@ -488,11 +488,11 @@ function schaleBauen(){
       <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Quellen</h1>
-        <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst. Der Volltext liegt in der Datenbank: die Tagesaufgabe sucht darin nach Belegstellen und schreibt Herausgeber und Titel in die Erläuterung jeder Frage.</p>
+        <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst. Der Volltext liegt in der Datenbank: die Tagesaufgabe sucht darin nach Belegstellen und schreibt Herausgeber und Titel in die Erläuterung jeder Frage. Jeder Zugang darf eigene Dokumente aufnehmen und Quellen wieder entfernen – der Bestand ist gemeinsam, gelöschte Volltexte sind weg.</p>
       </div></div>
     </div>
     <div class="wrap">
-      <div class="card pad" style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:26px">
+      <div class="card pad" id="qu-filterkarte" style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:26px">
         <label class="fld" style="flex:1;min-width:220px">Suche<input type="search" id="qu-suche" placeholder="Titel oder Dateiname"></label>
         <label class="fld" style="flex:1;min-width:170px">Prüfungsteil<select id="qu-kat"></select></label>
         <label class="fld" style="flex:1;min-width:160px">Prüfungsbezug<select id="qu-stufe">
@@ -1710,8 +1710,9 @@ async function ladeQuellen(){
   QU_KATS = kats||[]; QU_ALLE = qs||[];
 }
 
+/* Quellen darf jeder aktive Zugang pflegen – aufnehmen, einstufen, entfernen.
+   Die Datenbank sieht das genauso (Regel „aktive Nutzer pflegen Quellen“). */
 async function renderQuellen(){
-  if(!istAdmin()){ go('dash'); return; }
   const liste=$('#qu-liste'); liste.innerHTML='<div class="card"><div class="empty">Wird geladen …</div></div>';
   await ladeQuellen();
   const ks=$('#qu-kat');
@@ -2077,8 +2078,14 @@ async function ohneBezugEntfernen(){
 }
 
 async function quelleLoeschen(q){
+  /* Der Bestand ist gemeinsam und die PDFs liegen nicht mehr im Speicher:
+     ein gelöschter Volltext ist endgültig weg. Bei Kernquellen deshalb ein
+     zweiter, deutlicher Rückfragesatz. */
   if(!confirm('„'+q.titel+'“ wirklich löschen? Der Volltext dieser Quelle ('
               +(q.textseiten||0)+' Seiten) wird mitentfernt und steht der Tagesaufgabe nicht mehr zur Verfügung.')) return;
+  if(q.relevanz==='kern' && !confirm('Achtung: „'+q.titel+'“ ist als Kernquelle eingestuft – '
+      +'eine der Grundlagen für die täglichen Fragen. Der Bestand gehört allen Zugängen, '
+      +'und der Text lässt sich nicht wiederherstellen. Trotzdem löschen?')) return;
   const {error} = await sb.from('quelle').delete().eq('id', q.id);
   if(error){ toast(fehlertext(error)); return; }
   toast('Quelle gelöscht.'); renderQuellen();
@@ -2428,8 +2435,10 @@ function renderMehr(){
     {v:'konto', t:'Konto', p:'Name, Passwort, Fortschritt sichern und die Anleitung, wie der Trainer als App auf dem iPhone landet.',
      z: esc(PROFIL.email)},
   ];
+  kacheln.push({v:'quellen', t:'Quellen',
+    p:'Grundlage der täglich erzeugten Fragen, geordnet nach Prüfungsteil, mit Herausgeber und Einstufung. Du kannst eigene Dokumente aufnehmen und Quellen entfernen.',
+    z: QU_ALLE.length ? QU_ALLE.length+' Dokumente' : 'aufnehmen und pflegen'});
   if(istAdmin()) kacheln.push(
-    {v:'quellen', t:'Quellen', p:'Grundlage der täglich erzeugten Fragen, geordnet nach Prüfungsteil, mit Herausgeber und Einstufung.', z:'nur für Administratoren'},
     {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'});
 
   $('#mehrgitter').innerHTML = kacheln.map(k=>
@@ -2635,7 +2644,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-03-8';
+const FASSUNG = 'tt-2026-08-03-9';
 let SW_REG = null, SW_NEULADEN = false;
 
 async function dienstStarten(){
@@ -2667,5 +2676,51 @@ async function nachAktualisierungSehen(melden){
   }catch(e){ if(melden) toast('Prüfung nicht möglich – keine Verbindung.'); }
 }
 dienstStarten();
+
+/* ---------- Anzeigegröße auf dem Telefon ----------
+   Steht in Safari „Desktop-Website anfordern“ an (auf dem iPad die
+   Voreinstellung, auf dem iPhone einmal getippt und danach für die Adresse
+   gemerkt), baut Safari die Seite auf einer 980 Punkt breiten Bühne auf und
+   verkleinert sie anschließend auf die Gerätebreite. Die Schrift landet dann
+   bei rund 40 Prozent, und man muss von Hand hineinzoomen.
+
+   Erkennbar ist das daran, dass die Bühne deutlich breiter ist als der
+   Bildschirm. In diesem Fall wird die Bühnenbreite erneut gesetzt – Safari
+   verwirft die Desktop-Bühne und rechnet wieder in Gerätepunkten. Trifft die
+   Bedingung nicht zu, ändert sich nichts. */
+const TIPPGERAET = matchMedia('(pointer:coarse)').matches;
+const desktopBuehne = ()=>{
+  const geraet = Math.min(screen.width||0, screen.height||0);
+  return TIPPGERAET && geraet > 0 && window.innerWidth > geraet * 1.3;
+};
+
+function bildschirmMassnehmen(){
+  const m = document.querySelector('meta[name=viewport]');
+  if(!m || !desktopBuehne()) return;
+  const geraet = Math.min(screen.width, screen.height);
+  m.setAttribute('content', 'width=' + geraet + ', initial-scale=1, viewport-fit=cover');
+  /* Ein zweiter Durchgang: nachdem Safari die Bühne verworfen hat, wieder auf
+     die Gerätebreite umstellen, damit auch das Drehen stimmt. */
+  setTimeout(()=>{
+    m.setAttribute('content','width=device-width, initial-scale=1, viewport-fit=cover');
+    /* Bleibt Safari bei der Desktop-Bühne, hilft nur die Einstellung selbst.
+       Dann sagen wir dem Nutzer, wo sie steht, statt ihn zoomen zu lassen. */
+    setTimeout(desktopHinweis, 400);
+  }, 300);
+}
+
+function desktopHinweis(){
+  if(!desktopBuehne() || document.getElementById('desktopwarnung')) return;
+  const d = document.createElement('div');
+  d.id = 'desktopwarnung';
+  d.innerHTML = '<span>Safari zeigt diese Seite als <b>Desktop-Fassung</b> – deshalb ist alles verkleinert. '
+    + 'Tippe links in der Adressleiste auf <b>aA</b> und wähle <b>Mobile Website anfordern</b>.</span>'
+    + '<button type="button" aria-label="Hinweis schließen">&times;</button>';
+  d.querySelector('button').onclick = ()=>d.remove();
+  document.body.appendChild(d);
+}
+
+bildschirmMassnehmen();
+window.addEventListener('orientationchange', ()=>setTimeout(bildschirmMassnehmen, 250));
 
 starten();

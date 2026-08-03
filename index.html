@@ -408,6 +408,13 @@ details.lp-auf>summary:hover{background:var(--tint)}
 /* =====================================================================
    Bausteine aus dem Entwurf: gruppierte Listen in weißen Karten
    ===================================================================== */
+/* Hinweis, wenn Safari die Seite als Desktop-Fassung ausliefert */
+#desktopwarnung{position:fixed;left:0;right:0;top:0;z-index:200;display:flex;gap:12px;align-items:flex-start;
+  padding:12px 14px;background:#fdf4dd;border-bottom:1px solid var(--gold);
+  font-size:13px;line-height:1.45;color:#6b5200}
+#desktopwarnung b{font-weight:700}
+#desktopwarnung button{flex:none;border:0;background:none;font-size:20px;line-height:1;color:#6b5200;padding:0 4px}
+
 .cdcard{display:flex;align-items:center;gap:18px;background:var(--schwarz);color:#fff;
   border-radius:14px;padding:20px 24px;margin-bottom:30px}
 .cdcard .n{font-size:52px;line-height:.95;font-weight:700;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
@@ -543,7 +550,10 @@ button.zeile:hover{background:var(--tint)}
 
 /* ---------- 2 · Kopfzeile: großer Titel statt Menüband ---------- */
 @media(max-width:720px){
-  :root{ --kopf:0px; --tableiste:74px; }
+  /* Gesamthöhe der Tab-Leiste einschließlich ihres eigenen unteren Randes.
+     Wer Platz für sie freihalten will, rechnet nur noch mit dieser Zahl. */
+  :root{ --kopf:0px;
+         --tableiste: calc(57px + max(8px, env(safe-area-inset-bottom) - 14px)); }
 
   /* Der Bildschirm liegt auf Grau, die Inhalte stehen in weißen Karten –
      wie im Entwurf. Die Markenzeile entfällt; ihre Aufgabe übernimmt der
@@ -604,13 +614,17 @@ button.zeile:hover{background:var(--tint)}
     -webkit-backdrop-filter:saturate(180%) blur(20px);
     backdrop-filter:saturate(180%) blur(20px);
     border-top:1px solid var(--line-soft);
-    padding:8px max(4px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom));
+    /* Der Streifen unter den Beschriftungen war zu breit: die Safe Area am
+       unteren Rand ist 34 Punkte hoch, davon braucht der Ziehbalken des
+       iPhones nur etwa die Hälfte. Wie in der Systemleiste rücken die
+       Beschriftungen deshalb näher an den Balken heran. */
+    padding:6px max(4px,env(safe-area-inset-left)) max(8px, calc(env(safe-area-inset-bottom) - 14px));
   }
   nav button,
   nav button.mehr{
     flex:1 1 0; min-width:0;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
-    margin:0; padding:6px 2px; border:0; border-bottom:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    margin:0; padding:4px 2px; border:0; border-bottom:0;
     font-size:10.5px; line-height:1.15; letter-spacing:-.01em;
     color:var(--muted-2); white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis;
@@ -632,14 +646,14 @@ button.zeile:hover{background:var(--tint)}
 
   /* Das Klappmenü öffnet nach oben, über der Leiste. */
   #navpop{
-    position:fixed; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom)); top:auto;
+    position:fixed; bottom:var(--tableiste); top:auto;
     left:max(12px,env(safe-area-inset-left)); right:max(12px,env(safe-area-inset-right)); width:auto;
     border-radius:14px; box-shadow:0 -10px 40px rgba(0,0,0,.18); padding:8px;
   }
   #navpop button{ min-height:52px; border-radius:10px; padding:12px 14px; font-size:16px; }
 
   /* Platz für die Leiste am Seitenende. */
-  main{ padding-bottom:calc(var(--tableiste) + 24px + env(safe-area-inset-bottom)); }
+  main{ padding-bottom:calc(var(--tableiste) + 24px); }
 }
 
 /* ---------- 4 · Karten und Listen ---------- */
@@ -708,7 +722,7 @@ button.zeile:hover{background:var(--tint)}
 
   /* Startknopf klebt über der Tab-Leiste, immer erreichbar. */
   .tr-start{
-    position:sticky; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom));
+    position:sticky; bottom:var(--tableiste);
     z-index:30; margin:22px -16px 0; padding:12px 16px 14px;
     background:rgba(255,255,255,.94);
     -webkit-backdrop-filter:saturate(180%) blur(18px);
@@ -906,7 +920,7 @@ button.zeile:hover{background:var(--tint)}
   /* Die beiden Abschlusstasten kleben über der Tab-Leiste – erreichbar,
      ohne die Durchsicht bis zum Ende scrollen zu müssen. */
   .ergfuss{
-    position:sticky; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom));
+    position:sticky; bottom:var(--tableiste);
     z-index:30; margin:22px -16px 0; padding:10px 16px 12px;
     background:rgba(255,255,255,.94);
     -webkit-backdrop-filter:saturate(180%) blur(18px);
@@ -950,7 +964,7 @@ button.zeile:hover{background:var(--tint)}
   .btn.sm{ min-height:40px; border-radius:10px; padding:0 14px }
   .btn.blk{ width:100% }
   .toast{
-    left:16px; right:16px; bottom:calc(var(--tableiste) + 12px + env(safe-area-inset-bottom));
+    left:16px; right:16px; bottom:calc(var(--tableiste) + 12px);
     transform:translateY(90px); max-width:none; border-radius:12px; padding:14px 18px;
   }
   .toast.on{ transform:none }
@@ -961,6 +975,14 @@ button.zeile:hover{background:var(--tint)}
   .konto .wahl{ flex:1 1 100% } .konto .wahl label{ flex:1 } .konto .wahl select{ min-width:0; width:100% }
   .konto .zahlen{ min-width:0 }
   .einladung{ padding:14px 16px; gap:10px } .einladung .akt{ width:100%; margin-left:0; justify-content:flex-end }
+  /* Quellenfilter: die drei Auswahlfelder nebeneinander statt untereinander,
+     sonst füllt allein die Filterkarte den halben Bildschirm. */
+  #qu-filterkarte{ gap:10px!important; padding:14px 16px; margin-bottom:18px!important }
+  #qu-filterkarte .fld{ flex:1 1 calc(50% - 6px)!important; min-width:0!important }
+  #qu-filterkarte .fld:first-child{ flex:1 1 100%!important }
+  #qu-filterkarte .fld>span, #qu-filterkarte .fld{ font-size:11px }
+  #qu-filterkarte #qu-neu{ flex:1 1 100%; min-height:50px; border-radius:12px }
+
   .gebiet{ border-radius:14px } .gebiet>summary{ padding:15px 16px; gap:10px; min-height:56px }
   .quelle{ padding:13px 16px; gap:10px; flex-wrap:wrap } .quelle .akt{ width:100%; justify-content:flex-end }
 }
