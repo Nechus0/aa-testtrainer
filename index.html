@@ -411,6 +411,15 @@ details.lp-auf[open]>summary::before{content:"▼ "}
 
 .cdcard{display:flex;align-items:center;gap:18px;background:var(--schwarz);color:#fff;
   border-radius:14px;padding:20px 24px;margin-bottom:30px}
+
+/* Hinweis auf einen Durchgang, der nicht zu Ende gebracht wurde */
+.offenerlauf{display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  border:1px solid var(--gold);background:#fdf4dd;border-radius:14px;
+  padding:16px 20px;margin:-14px 0 30px}
+.offenerlauf .ol-text{flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px}
+.offenerlauf .ol-text b{font-size:15.5px;color:#6b5200}
+.offenerlauf .ol-text span{font-size:13px;color:#7d6317}
+.offenerlauf .ol-akt{display:flex;gap:10px;flex:none}
 .cdcard .n{font-size:52px;line-height:.95;font-weight:700;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
 .cdcard .t{display:flex;flex-direction:column;gap:3px}
 .cdcard .t b{font-size:16px;font-weight:600}
@@ -594,6 +603,9 @@ button.zeile{cursor:pointer}
   h2{ font-size:19px; }
   .lead{ font-size:16px; line-height:1.5; margin-top:10px; }
   .cd{ gap:10px } .cd .n{ font-size:34px } .cd .u{ font-size:15px }
+  .offenerlauf{ padding:14px 16px; gap:12px; margin:-16px 0 26px }
+  .offenerlauf .ol-akt{ flex:1 1 100% }
+  .offenerlauf .ol-akt .btn{ flex:1; min-height:46px; border-radius:11px }
 }
 
 /* ---------- 3 · Tab-Leiste unten (aus der vorhandenen <nav>) ----------
