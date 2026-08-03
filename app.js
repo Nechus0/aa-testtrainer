@@ -351,7 +351,7 @@ const HAUPT = [['dash','Übersicht'], ['train','Trainer'], ['fragen','Fragen'], 
 const engesGeraet = ()=> matchMedia('(max-width:720px)').matches;
 
 /* Unterseiten von "Mehr" färben den Reiter mit ein. */
-const UNTER_MEHR = ['mehr','konto','quellen','nutzer'];
+const UNTER_MEHR = ['mehr','konto','quellen','nutzer','tagesstand'];
 function navBauen(){
   $('#nav').innerHTML = HAUPT.map(([v,t])=>{
     const an = v===ANSICHT || (v==='mehr' && UNTER_MEHR.includes(ANSICHT));
@@ -367,7 +367,7 @@ function schaleBauen(){
       <div class="eyebrow">Auswahlverfahren</div>
       <div class="row">
         <div style="flex:1;min-width:280px">
-          <h1>Dashboard</h1>
+          <h1>Übersicht</h1>
           <p class="lead" id="dash-lead">Dein Stand in den drei Fachtests des schriftlichen Auswahlverfahrens.</p>
         </div>
         <div>
@@ -445,6 +445,7 @@ function schaleBauen(){
         <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …">
         <button class="btn ghost" id="q-filter-auf" aria-expanded="false">Filter</button>
       </div>
+      <div class="zahlzeile" id="q-zahl"></div>
       <div class="filterbox" id="q-filter" hidden>
         <label class="fld">Prüfungsteil<select id="q-kat"></select></label>
         <label class="fld">Abschnitt<select id="q-block"></select></label>
@@ -452,7 +453,6 @@ function schaleBauen(){
       </div>
       <div id="q-kopf"></div>
       <div id="poollist"></div>
-      <div class="auswahlaktion" id="q-aktion"></div>
       <div class="sec">
         <div class="sec-h"><h2>Abdeckung des Lehrplans</h2><span class="note" id="lp-note"></span></div>
         <div id="lehrplan"></div>
@@ -468,6 +468,16 @@ function schaleBauen(){
       </div></div>
     </div>
     <div class="wrap"><div class="mehrgitter" id="mehrgitter"></div></div>`;
+
+  $('#v-tagesstand').innerHTML = `
+    <div class="wrap page">
+      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
+      <div class="row"><div style="flex:1;min-width:280px">
+        <h1>Tägliche Fragen</h1>
+        <p class="lead">Wann der letzte Abschnitt kam, wann der nächste kommt und was bisher zusammengekommen ist.</p>
+      </div></div>
+    </div>
+    <div class="wrap"><div id="ts-inhalt"></div></div>`;
 
   $('#v-quellen').innerHTML = `
     <div class="wrap page">
@@ -487,10 +497,8 @@ function schaleBauen(){
         <label class="fld" style="flex:1;min-width:150px">Vorliegen<select id="qu-datei">
           <option value="">alle</option>
           <option value="text">Volltext gelesen</option>
-          <option value="ohnetext">ohne Volltext</option>
-          <option value="ja">PDF im Speicher</option>
-          <option value="nein">ohne PDF</option></select></label>
-        <button class="btn sm" id="qu-neu">Quelle hinzufügen</button>
+          <option value="ohnetext">ohne Volltext</option></select></label>
+        <button class="btn sm" id="qu-neu">Quellen aufnehmen</button>
       </div>
       <div id="qu-stat" class="small mute" style="margin-bottom:18px"></div>
       <div id="qu-liste"></div>
@@ -558,6 +566,7 @@ function go(v){
   if(v==='train'){ if(!LAUF || LAUF.phase==='ergebnis'){ LAUF=null; renderMenu(); } }
   if(v==='fragen') renderFragen();
   if(v==='mehr') renderMehr();
+  if(v==='tagesstand') renderTagesstand();
   if(v==='quellen') renderQuellen();
   if(v==='nutzer') renderNutzer();
   if(v==='konto') renderKonto();
@@ -1364,61 +1373,158 @@ const LP_NAME = {recht:'Völker-, Europa- und Staatsrecht', geschichte:'Geschich
   wirtschaft:'Wirtschaft', textverstaendnis:'Textverständnis', wortschatz:'Wortschatz', grammatik:'Grammatik'};
 const LP_KLS = {recht:'recht', geschichte:'geschichte', wirtschaft:'wirtschaft',
   textverstaendnis:'franzoesisch', wortschatz:'franzoesisch', grammatik:'franzoesisch'};
-let LP_OFFEN = null;
+let LP_WEG = [];          /* Navigationspfad: [] | [kategorie] | [kategorie, oberfeld] */
+let LP_MEHR = 15;         /* wie viele Zeilen je Ebene sichtbar sind */
+let LP_STAND = null;      /* Zeilen aus lehrplan_stand, einmal geladen */
+
+/* Prüfungsteil einer Frage, so wie der Lehrplan ihn benennt. */
+const lpTeil = (q)=> q.kategorie==='franzoesisch' ? (q.teil||'wortschatz') : q.kategorie;
+
+/* Ober- und Unterfeld aus dem Thema. Der Lehrplan schreibt „Oberfeld – Unterfeld“. */
+function lpTeile(thema){
+  const t=(thema||'').trim();
+  if(!t) return ['Ohne Thema',''];
+  const i=t.search(/\s[–—-]\s/);
+  return i<0 ? [t,''] : [t.slice(0,i).trim(), t.slice(i+3).trim()];
+}
+
+/* Baut den Lehrplan und den eigenen Stand zu einem Baum zusammen:
+   geplante Felder ohne Fragen erscheinen ebenso wie Fragen, die (noch)
+   neben dem Plan liegen. */
+function lpBaum(){
+  const l = letzteJeFrage();
+  const baum = {};                       /* teil -> oberfeld -> unterfeld */
+  const holen = (teil, ober, unter)=>{
+    const t = baum[teil] = baum[teil] || {name:LP_NAME[teil]||teil, kls:LP_KLS[teil]||'recht', felder:{}};
+    const o = t.felder[ober] = t.felder[ober] || {name:ober, felder:{}};
+    return o.felder[unter] = o.felder[unter] || {name:unter||ober, thema:'', gewicht:0,
+                                                 bestand:0, bearbeitet:0, richtig:0, imPlan:false, ids:[]};
+  };
+  for(const s of (LP_STAND||[])){
+    const f = holen(s.kategorie, s.oberfeld, s.unterfeld);
+    f.imPlan = true; f.gewicht = s.gewicht; f.thema = s.thema;
+  }
+  for(const q of ALLES){
+    const [ober, unter] = lpTeile(q.thema);
+    const f = holen(lpTeil(q), ober, unter);
+    if(!f.thema) f.thema = q.thema || ober;
+    f.bestand++; f.ids.push(q.id);
+    const a = l[q.id];
+    if(a){ f.bearbeitet++; if(a.ok) f.richtig++; }
+  }
+  /* Summen nach oben durchreichen */
+  for(const t of Object.values(baum)){
+    t.bestand=t.bearbeitet=t.richtig=t.felder_n=t.felder_leer=0; t.ids=[];
+    for(const o of Object.values(t.felder)){
+      o.bestand=o.bearbeitet=o.richtig=o.felder_n=o.felder_leer=0; o.ids=[];
+      for(const f of Object.values(o.felder)){
+        o.bestand+=f.bestand; o.bearbeitet+=f.bearbeitet; o.richtig+=f.richtig;
+        o.felder_n++; if(!f.bestand) o.felder_leer++; o.ids.push(...f.ids);
+      }
+      t.bestand+=o.bestand; t.bearbeitet+=o.bearbeitet; t.richtig+=o.richtig;
+      t.felder_n+=o.felder_n; t.felder_leer+=o.felder_leer; t.ids.push(...o.ids);
+    }
+  }
+  return baum;
+}
 
 async function renderLehrplan(){
   const box=$('#lehrplan'); if(!box) return;
-  const [{data:ueb}, {data:stand}] = await Promise.all([
-    sb.from('lehrplan_uebersicht').select('*'),
-    sb.from('lehrplan_stand').select('kategorie,thema,gewicht,fragen,soll,zuletzt').order('kategorie')
-  ]);
-  if(!ueb){ box.innerHTML='<div class="card"><div class="empty">Lehrplan konnte nicht geladen werden.</div></div>'; return; }
-  const reihe=['recht','geschichte','wirtschaft','textverstaendnis','wortschatz','grammatik'];
-  const sortiert=reihe.map(k=>ueb.find(u=>u.kategorie===k)).filter(Boolean);
-  const felder=sortiert.reduce((a,u)=>a+u.felder,0);
-  const belegt=sortiert.reduce((a,u)=>a+u.begonnen,0);
-  $('#lp-note').textContent = 'Bestand, nicht dein Fortschritt';
+  if(!LP_STAND){
+    box.innerHTML='<div class="card"><div class="empty">Wird geladen …</div></div>';
+    const {data} = await sb.from('lehrplan_stand')
+      .select('id,kategorie,oberfeld,unterfeld,thema,gewicht').order('id');
+    if(!data){ box.innerHTML='<div class="card"><div class="empty">Lehrplan konnte nicht geladen werden.</div></div>'; return; }
+    LP_STAND = data;
+  }
+  lpZeichnen();
+}
 
-  /* Kompakte Zeile je Prüfungsteil statt sechs Karten – die Seite bleibt kurz. */
+function lpZeichnen(){
+  const box=$('#lehrplan'); if(!box) return;
+  const baum = lpBaum();
+  const [katWahl, oberWahl] = LP_WEG;
+  const REIHE = ['recht','geschichte','wirtschaft','textverstaendnis','wortschatz','grammatik'];
+
+  /* Welche Zeilen stehen auf dieser Ebene? */
+  let zeilen, kls, titel, unterzeile;
+  if(!katWahl){
+    zeilen = REIHE.filter(k=>baum[k]).map(k=>({schluessel:k, ...baum[k]}));
+    const b = zeilen.reduce((a,z)=>a+z.bestand,0), e = zeilen.reduce((a,z)=>a+z.bearbeitet,0);
+    titel = 'Alle Prüfungsteile';
+    unterzeile = `${e} von ${b} Fragen bearbeitet · ${zeilen.reduce((a,z)=>a+z.felder_n,0)} Themenfelder`;
+  } else if(!oberWahl){
+    const t = baum[katWahl] || {felder:{}};
+    kls = t.kls;
+    zeilen = Object.keys(t.felder).map(o=>({schluessel:o, kls:t.kls, ...t.felder[o]}));
+    titel = t.name || katWahl;
+    unterzeile = `${t.bearbeitet||0} von ${t.bestand||0} Fragen bearbeitet · ${t.felder_n||0} Themenfelder`;
+  } else {
+    const t = baum[katWahl] || {felder:{}};
+    const o = t.felder[oberWahl] || {felder:{}};
+    kls = t.kls;
+    zeilen = Object.values(o.felder).map(f=>({schluessel:f.name, kls:t.kls, blatt:true, ...f}));
+    titel = oberWahl;
+    unterzeile = `${o.bearbeitet||0} von ${o.bestand||0} Fragen bearbeitet · ${o.felder_n||0} Themenfelder`;
+  }
+  zeilen.sort((a,b)=> b.bestand-a.bestand || a.name.localeCompare(b.name,'de'));
+
+  const zeige = zeilen.slice(0, LP_MEHR);
+  const quote = (z)=> z.bearbeitet ? Math.round(z.richtig/z.bearbeitet*100) : null;
+
+  const brot = LP_WEG.length
+    ? `<div class="lp-brot">
+         <button class="link" data-lp-zu="">Alle Prüfungsteile</button>
+         ${LP_WEG.map((s,i)=> i<LP_WEG.length-1
+            ? `<span>›</span><button class="link" data-lp-zu="${esc(LP_WEG.slice(0,i+1).join('||'))}">${esc(i===0?(LP_NAME[s]||s):s)}</button>`
+            : `<span>›</span><b>${esc(i===0?(LP_NAME[s]||s):s)}</b>`).join('')}
+       </div>` : '';
+
   box.innerHTML = `
     <div class="card">
-      <div class="feld" style="border-bottom:1px solid var(--line);padding-top:18px;padding-bottom:18px">
-        <span class="nm" style="font-weight:600;color:var(--ink);font-size:16px">${belegt} von ${felder} Themenfeldern haben bereits Fragen</span>
+      ${brot}
+      <div class="feld lp-kopf" style="border-bottom:1px solid var(--line);padding-top:16px;padding-bottom:16px">
+        <span class="nm">${esc(titel)}</span>
+        <span class="uz">${esc(unterzeile)}</span>
       </div>
-      ${sortiert.map(u=>{
-        const p=Math.round(u.begonnen/u.felder*100);
-        return `<div class="feld k-${LP_KLS[u.kategorie]}">
+      ${zeige.map(z=>{
+        const p = z.bestand ? Math.round(z.bearbeitet/z.bestand*100) : 0;
+        const q = quote(z);
+        return `<div class="feld lp-zeile k-${z.kls||kls||'recht'}"${z.blatt?'':` data-lp-tiefer="${esc(z.schluessel)}"`}>
           <span class="sq"></span>
-          <span class="nm">${esc(LP_NAME[u.kategorie])}</span>
-          <span class="bar"><i style="width:${p}%"></i></span>
-          <span class="qt tnum" style="width:70px">${u.begonnen}/${u.felder}</span>
-          <span class="ct" style="width:88px">${u.fragen} Fragen</span>
+          <span class="nm" title="${esc(z.name)}">${esc(z.name)}${
+            z.blatt && z.imPlan===false ? ' <span class="lp-frei">nicht im Plan</span>' : ''}</span>
+          <span class="bar" title="${z.bearbeitet} von ${z.bestand} bearbeitet"><i style="width:${p}%"></i></span>
+          <span class="qt tnum" style="width:74px">${z.bearbeitet}/${z.bestand}</span>
+          <span class="ct" style="width:96px">${
+            z.bestand===0 ? 'noch keine Frage'
+              : (q===null ? 'nicht bearbeitet' : q+' % richtig')}</span>
+          ${z.blatt? '' : '<span class="lp-pfeil">›</span>'}
         </div>`;
       }).join('')}
-      <details class="lp-auf"><summary>Noch ohne Fragen: ${(stand||[]).filter(s=>!s.fragen).length} Themenfelder ansehen</summary>
-        <div id="lp-liste"></div></details>
+      ${zeilen.length>zeige.length
+        ? `<div class="morerow"><button class="link" id="lp-mehr">Weitere ${
+             Math.min(15, zeilen.length-zeige.length)} von ${zeilen.length-zeige.length} anzeigen</button></div>`
+        : (LP_MEHR>15 ? `<div class="morerow"><button class="link" id="lp-weniger">Wieder einklappen</button></div>`:'')}
       <div class="feld xs mute" style="border-top:1px solid var(--line-soft);border-bottom:0">
-        <span class="nm" style="white-space:normal">Der Lehrplan beschreibt, was bis zur Prüfung im Bestand sein muss.
-          Die Zahl zeigt, für wie viele Felder es schon Fragen gibt – unabhängig davon, ob du sie bearbeitet hast.
-          Deinen eigenen Fortschritt findest du auf dem Dashboard.</span>
+        <span class="nm" style="white-space:normal">${
+          LP_WEG.length<2
+            ? 'Der Lehrplan beschreibt, was bis zur Prüfung im Bestand sein muss. Tippe einen Bereich an, um bis auf das einzelne Themenfeld zu kommen.'
+            : 'Die erste Zahl ist, was du bearbeitet hast, die zweite der Bestand. Felder ohne Frage füllt die Tagesaufgabe nach und nach auf. Geübt wird im Trainer.'}</span>
       </div>
     </div>`;
 
-  const offen=(stand||[]).filter(s=>!s.fragen);
-  const zeichnen=()=>{
-    const zeige = LP_OFFEN ? offen : offen.slice(0,12);
-    $('#lp-liste').innerHTML = offen.length
-      ? zeige.map(s=>`<div class="feld k-${LP_KLS[s.kategorie]}">
-          <span class="sq"></span>
-          <span class="nm" title="${esc(s.thema)}">${esc(s.thema)}</span>
-          <span class="ct" style="width:auto;white-space:nowrap">${s.gewicht===3?'häufig':s.gewicht===2?'normal':'selten'}</span>
-        </div>`).join('')
-        + (offen.length>12 ? `<div class="morerow"><button class="link" id="lp-mehr">${
-            LP_OFFEN?'Weniger anzeigen':'Alle '+offen.length+' anzeigen'}</button></div>`:'')
-      : '<div class="empty">Jedes Themenfeld hat mindestens eine Frage.</div>';
-    const b=$('#lp-mehr'); if(b) b.onclick=()=>{ LP_OFFEN=!LP_OFFEN; zeichnen(); };
-  };
-  zeichnen();
+  $('#lp-note').textContent = LP_WEG.length ? 'dein Stand in diesem Bereich' : 'dein Stand über den ganzen Lehrplan';
+
+  $$('#lehrplan [data-lp-tiefer]').forEach(e=>e.onclick=(ev)=>{
+    if(ev.target.closest('button')) return;
+    LP_WEG = LP_WEG.concat(e.dataset.lpTiefer); LP_MEHR=15; lpZeichnen();
+  });
+  $$('#lehrplan [data-lp-zu]').forEach(b=>b.onclick=()=>{
+    LP_WEG = b.dataset.lpZu ? b.dataset.lpZu.split('||') : []; LP_MEHR=15; lpZeichnen();
+  });
+  const m=$('#lp-mehr'); if(m) m.onclick=()=>{ LP_MEHR+=15; lpZeichnen(); };
+  const w=$('#lp-weniger'); if(w) w.onclick=()=>{ LP_MEHR=15; lpZeichnen(); };
 }
 
 const STATUS = [
@@ -1473,6 +1579,9 @@ function fragenListe(){
   const st = STATUS.find(x=>x.id===Q.status) || STATUS[0];
   TREFFER = grund.filter(q=>st.test(q,l));
   const gefiltert = !!(suche||kat||block) || Q.status!=='alle';
+  $('#q-zahl').innerHTML = TREFFER.length
+    ? `<b>${TREFFER.length}</b> von ${ALLES.length} Fragen${Q.status==='alle'?'':' · '+esc(st.name.toLowerCase())}`
+    : 'Keine Frage in dieser Auswahl';
 
   /* Bei Fehlern und Markierungen die dichtesten Themenfelder voranstellen. */
   const kopf=$('#q-kopf');
@@ -1486,14 +1595,8 @@ function fragenListe(){
         <span class="ct" style="width:auto">${Object.keys(feld).length} insgesamt</span></div>
       ${felder.map(f=>`<div class="feld k-${f.kat}">
         <span class="sq"></span><span class="nm">${esc(f.f)}</span>
-        <span class="ct fehler" style="width:auto">${f.n}</span>
-        <span style="flex:none"><button class="btn ghost sm" data-feld="${esc(f.f)}">Üben</button></span></div>`).join('')}
+        <span class="ct fehler" style="width:auto">${f.n}</span></div>`).join('')}
     </div>`;
-    $$('#q-kopf [data-feld]').forEach(x=>x.onclick=()=>{
-      const feldname=x.dataset.feld;
-      start({typ:'auswahl', zeit:0, titel:'Wiederholung · '+feldname,
-             ids:TREFFER.filter(q=>themenfeld(q)===feldname).map(q=>q.id)});
-    });
   } else kopf.innerHTML='';
 
   gruppenliste('#poollist', TREFFER, l, POOL_OFFEN, POOL_MEHR, 20, gefiltert,
@@ -1502,20 +1605,6 @@ function fragenListe(){
     POOL_MEHR[x.dataset.mehr]=(POOL_MEHR[x.dataset.mehr]||20)+20; POOL_OFFEN.add(x.dataset.mehr); fragenListe(); });
   $$('#poollist [data-weniger]').forEach(x=>x.onclick=()=>{ POOL_MEHR[x.dataset.weniger]=20; fragenListe(); });
 
-  /* Die Fußtaste startet immer genau die gerade gefilterte Menge. */
-  const viele = TREFFER.length>50;
-  $('#q-aktion').innerHTML = TREFFER.length
-    ? `<span class="zahl"><b>${TREFFER.length}</b> von ${ALLES.length} Fragen${
-         Q.status==='alle'?'':' · '+esc(st.name.toLowerCase())}</span>
-       ${viele?`<button class="btn ghost" id="q-alle">Alle ${TREFFER.length} üben</button>`:''}
-       <button class="btn" id="q-ueben">${viele? '50 üben' : (TREFFER.length===1?'Diese Frage üben':'Diese '+TREFFER.length+' üben')}</button>`
-    : `<span class="zahl">Keine Frage in dieser Auswahl</span>`;
-  const ub=$('#q-ueben');
-  if(ub) ub.onclick=()=>start({typ:'auswahl', n:viele?50:0, zeit:0,
-    titel:'Üben · '+(Q.status==='alle'?'Auswahl':st.name), ids:TREFFER.map(q=>q.id)});
-  const ua=$('#q-alle');
-  if(ua) ua.onclick=()=>start({typ:'auswahl', zeit:0,
-    titel:'Üben · '+(Q.status==='alle'?'Auswahl':st.name), ids:TREFFER.map(q=>q.id)});
 }
 
 /* Eine Frage als aufklappbarer Eintrag. */
@@ -1566,7 +1655,7 @@ function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert
       </div>
     </details>`;
   }).join('')
-  + (kompakt ? `<p class="hint" style="margin:12px 2px 0">${fragen.length} Fragen in ${gruppen.length} Prüfungsteilen. Öffne einen Prüfungsteil, um die Fragen zu lesen – oder starte die Auswahl unten unmittelbar als Durchgang.</p>` : '');
+  + (kompakt ? `<p class="hint" style="margin:12px 2px 0">${fragen.length} Fragen in ${gruppen.length} Prüfungsteilen. Öffne einen Prüfungsteil, um die Fragen mit Lösung und Erläuterung nachzulesen.</p>` : '');
   $$(ziel+' .gebiet').forEach(d=>d.ontoggle=()=>{
     if(d.open) offenSet.add(d.dataset.gruppe); else offenSet.delete(d.dataset.gruppe);
   });
@@ -1604,7 +1693,7 @@ async function renderQuellen(){
     ks.innerHTML='<option value="">alle</option>'+QU_KATS.map(k=>`<option value="${esc(k.schluessel)}">${esc(k.bezeichnung)}</option>`).join('');
     ks.onchange=quellenListe; $('#qu-datei').onchange=quellenListe; $('#qu-suche').oninput=quellenListe;
     $('#qu-stufe').onchange=quellenListe;
-    $('#qu-neu').onclick=()=>quelleBearbeiten(null);
+    $('#qu-neu').onclick=()=>aufnahmeOeffnen();
   }
   quellenListe();
 }
@@ -1633,13 +1722,11 @@ function quellenZeile(q){
       </span>
       <span class="datei">${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${
         q.volltext? ' · Volltext'+(q.textseiten?' '+q.textseiten+' Seiten':'')+(q.sprache&&q.sprache!=='de'?', '+SPR[q.sprache]:'') : ' · ohne Volltext'}${
-        q.vorhanden? ' · PDF im Speicher' : ''}${
+        ''}${
         (bz==='abseits'&&q.bemerkung)?' · '+esc(q.bemerkung):''}</span>
     </span>
     <span class="akt">
-      ${q.vorhanden
-        ? `<button class="btn ghost sm" data-lade="${q.id}">Öffnen</button>`
-        : `<button class="btn ghost sm" data-hoch="${q.id}">Hochladen</button>`}
+      ${q.volltext? `<button class="btn ghost sm" data-lade="${q.id}">Text lesen</button>`:''}
       <button class="btn ghost sm" data-bearb="${q.id}">Bearbeiten</button>
       <button class="btn ghost sm gefahr" data-weg="${q.id}">Löschen</button>
     </span>
@@ -1652,12 +1739,10 @@ function quellenListe(){
   const gefiltert = !!(s||k||d||e);
   const r=QU_ALLE.filter(q=>(!k||q.kategorie===k)
     && (!e||(q.relevanz||'ergaenzend')===e)
-    && (!d || (d==='ja'? q.vorhanden : d==='nein'? !q.vorhanden
-             : d==='text'? q.volltext : !q.volltext))
+    && (!d || (d==='text'? q.volltext : !q.volltext))
     && (!s || (q.titel+' '+q.dateiname+' '+(q.herausgeber||'')+' '+(q.herkunft||'')).toLowerCase().includes(s)));
 
-  const da=QU_ALLE.filter(q=>q.vorhanden).length;
-  const gb=QU_ALLE.filter(q=>q.vorhanden).reduce((a,q)=>a+(q.groesse||0),0);
+  const gb=QU_ALLE.reduce((a,q)=>a+(q.groesse||0),0);
   const ohne=QU_ALLE.filter(q=>q.relevanz==='abseits');
   const ohneMb=ohne.reduce((a,q)=>a+(q.groesse||0),0);
   const zaehl = Object.entries(QU_ALLE.reduce((m,q)=>{ m[q.einstufung||'sonstige']=(m[q.einstufung||'sonstige']||0)+1; return m; },{}));
@@ -1668,7 +1753,7 @@ function quellenListe(){
     + `<b style="color:var(--ink)">${mitText.length}</b> davon als Volltext gelesen`
     + (textseiten? ` (${textseiten.toLocaleString('de-DE')} Seiten)`:'')
     + (QU_ALLE.length-mitText.length? `, <b style="color:var(--gold)">${QU_ALLE.length-mitText.length} ohne Volltext</b>`:'')
-    + ` · ${da} liegen zusätzlich als PDF im Cloudspeicher (${mb(gb)})`
+    + ` · aus ${mb(gb)} PDF gewonnen, die selbst nicht mehr gespeichert werden`
     + `<div class="herkunft" style="margin-top:12px">${zaehl
         .sort((a,b)=>b[1]-a[1])
         .map(([s2,n])=>`<span class="stufe ${esc(s2)}" title="${esc((STUFE[s2]||STUFE.sonstige).lang)}">${esc((STUFE[s2]||STUFE.sonstige).kurz)} ${n}</span>`).join('')}</div>`
@@ -1715,7 +1800,6 @@ function quellenListe(){
   if(raus) raus.onclick=()=>ohneBezugEntfernen();
   $$('#qu-liste [data-bearb]').forEach(b=>b.onclick=()=>quelleBearbeiten(QU_ALLE.find(q=>q.id===b.dataset.bearb)));
   $$('#qu-liste [data-weg]').forEach(b=>b.onclick=()=>quelleLoeschen(QU_ALLE.find(q=>q.id===b.dataset.weg)));
-  $$('#qu-liste [data-hoch]').forEach(b=>b.onclick=()=>quelleHochladen(QU_ALLE.find(q=>q.id===b.dataset.hoch)));
   $$('#qu-liste [data-lade]').forEach(b=>b.onclick=()=>quelleOeffnen(QU_ALLE.find(q=>q.id===b.dataset.lade)));
 }
 
@@ -1728,6 +1812,189 @@ function dialog(inhalt){
   d.onclick=e=>{ if(e.target===d) d.remove(); };
   document.body.appendChild(d);
   return d;
+}
+
+/* =====================================================================
+   QUELLEN AUFNEHMEN
+   Eine Stelle für alle neuen Quellen: Dateien wählen, Prüfungsteil und
+   Herkunft festlegen, Text im Browser gewinnen, in die Datenbank schreiben.
+   Die Datei selbst wird nicht gespeichert – nur ihr Text.
+   ===================================================================== */
+let AUF = [];                 /* die zur Aufnahme vorgemerkten Dateien */
+let PDFJS = null;
+
+async function pdfWerkzeug(){
+  if(PDFJS) return PDFJS;
+  const m = await import('./bibliothek/pdf.mjs');
+  m.GlobalWorkerOptions.workerSrc = './bibliothek/pdf.worker.mjs';
+  PDFJS = m;
+  return m;
+}
+
+/* Seitenweiser Text. PDF über pdf.js, alles andere als reiner Text. */
+async function textGewinnen(datei, melden){
+  const name = datei.name.toLowerCase();
+  if(name.endsWith('.pdf')){
+    const m = await pdfWerkzeug();
+    const buch = await m.getDocument({data: await datei.arrayBuffer(),
+                                      isEvalSupported:false, useSystemFonts:true}).promise;
+    const seiten = [];
+    for(let i=1;i<=buch.numPages;i++){
+      const s = await buch.getPage(i);
+      const t = await s.getTextContent();
+      let zeile = '', aus = '';
+      for(const p of t.items){
+        if(p.str) zeile += p.str;
+        if(p.hasEOL){ aus += zeile.trim()+'\n'; zeile=''; }
+      }
+      aus += zeile;
+      seiten.push(saubereSeite(aus));
+      if(melden && i%10===0) melden(i, buch.numPages);
+    }
+    if(melden) melden(buch.numPages, buch.numPages);
+    return seiten;
+  }
+  /* Textdateien in Abschnitte von rund 3000 Zeichen zerlegen */
+  const roh = saubereSeite(await datei.text());
+  const teile = [];
+  for(let i=0;i<roh.length;i+=3000) teile.push(roh.slice(i, i+3000));
+  return teile.length? teile : [roh];
+}
+
+function saubereSeite(t){
+  return (t||'').normalize('NFC')
+    .replace(/­/g,'')
+    .replace(/-\n(?=[a-zäöüß])/g,'')
+    .replace(/[ \t ]+/g,' ')
+    .split('\n').map(z=>z.trim()).join('\n')
+    .replace(/\n{3,}/g,'\n\n').trim();
+}
+
+const AUF_KAT = [['recht','Völker-, Europa- und Staatsrecht'],['geschichte','Geschichte und Politik'],
+  ['wirtschaft','Wirtschaft'],['franzoesisch','Sprachtest Französisch'],['verfahren','Auswahlverfahren und Berufsbild']];
+
+function aufnahmeOeffnen(){
+  AUF = [];
+  const d = dialog('');
+  d.querySelector('.card').style.maxWidth = '640px';
+  aufnahmeZeichnen();
+}
+
+function aufnahmeZeichnen(laeuft){
+  const d = $('#dlg'); if(!d) return;
+  const kasten = d.querySelector('.card');
+  kasten.innerHTML = `
+    <h2 style="margin-bottom:6px">Quellen aufnehmen</h2>
+    <p class="small mute" style="margin-bottom:18px">Wähle eine oder mehrere Dateien (PDF, TXT, MD). Der Text
+      wird hier im Browser gewonnen und in die Datenbank geschrieben – die Datei selbst wird nicht gespeichert.
+      Die tägliche Fragenerstellung sucht darin nach Belegstellen.</p>
+    <div class="auf-wahl">
+      <input type="file" id="auf-datei" multiple accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" hidden>
+      <button class="btn ghost" id="auf-waehlen">Dateien wählen</button>
+      <span class="small mute">${AUF.length? AUF.length+(AUF.length===1?' Datei':' Dateien')+' vorgemerkt' : 'noch nichts gewählt'}</span>
+    </div>
+    <div id="auf-liste" style="margin-top:16px;display:flex;flex-direction:column;gap:12px"></div>
+    ${AUF.length? `
+      <div class="card" style="margin-top:18px;padding:16px 18px;background:var(--tint);border:0">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <label class="fld">Prüfungsteil für alle
+            <select id="auf-kat">${AUF_KAT.map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join('')}</select></label>
+          <label class="fld">Herausgeber
+            <input id="auf-geber" placeholder="z. B. Bundeszentrale für politische Bildung"></label>
+          <div class="row" style="gap:14px">
+            <label class="fld" style="flex:1;min-width:130px">Einstufung<select id="auf-stufe">
+              ${Object.entries(STUFE).map(([k,v])=>`<option value="${k}"${k==='behoerde'?' selected':''}>${esc(v.kurz)}</option>`).join('')}</select></label>
+            <label class="fld" style="flex:1;min-width:130px">Prüfungsbezug<select id="auf-bezug">
+              <option value="kern">Kernquelle</option><option value="ergaenzend" selected>Ergänzung</option></select></label>
+            <label class="fld" style="flex:1;min-width:100px">Jahr<input id="auf-jahr" inputmode="numeric" placeholder="2026"></label>
+          </div>
+          <label class="fld">Sachgebiet (frei, erscheint als Bereich)
+            <input id="auf-bereich" placeholder="z. B. Europarecht"></label>
+        </div>
+      </div>` : ''}
+    <div id="auf-fehler" style="margin-top:14px"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap">
+      <button class="btn ghost" id="auf-ab" ${laeuft?'disabled':''}>Schließen</button>
+      <button class="btn" id="auf-los" ${(!AUF.length||laeuft)?'disabled':''}>${
+        laeuft? 'Wird aufgenommen …' : (AUF.length? AUF.length+(AUF.length===1?' Quelle':' Quellen')+' aufnehmen' : 'Aufnehmen')}</button>
+    </div>`;
+
+  $('#auf-waehlen').onclick=()=>$('#auf-datei').click();
+  $('#auf-datei').onchange=(e)=>{
+    for(const f of e.target.files){
+      if(AUF.some(x=>x.datei.name===f.name && x.datei.size===f.size)) continue;
+      AUF.push({datei:f, titel:f.name.replace(/\.[^.]+$/,'').replace(/[_~]+/g,' ').trim(), stand:''});
+    }
+    aufnahmeZeichnen();
+  };
+  $('#auf-ab').onclick=()=>{ d.remove(); renderQuellen(); };
+  $('#auf-los').onclick=()=>aufnahmeStarten();
+  aufnahmeListe();
+}
+
+function aufnahmeListe(){
+  const box=$('#auf-liste'); if(!box) return;
+  box.innerHTML = AUF.map((e,i)=>`
+    <div class="auf-zeile">
+      <input class="auf-titel" data-i="${i}" value="${esc(e.titel)}" placeholder="Titel">
+      <span class="small mute auf-info">${mb(e.datei.size)}${e.stand?' · '+esc(e.stand):''}</span>
+      <button class="link" data-weg="${i}">Entfernen</button>
+    </div>`).join('');
+  $$('#auf-liste .auf-titel').forEach(x=>x.oninput=()=>{ AUF[+x.dataset.i].titel=x.value; });
+  $$('#auf-liste [data-weg]').forEach(b=>b.onclick=()=>{ AUF.splice(+b.dataset.weg,1); aufnahmeZeichnen(); });
+}
+
+async function aufnahmeStarten(){
+  const kat=$('#auf-kat').value, geber=$('#auf-geber').value.trim(),
+        stufe=$('#auf-stufe').value, bezug=$('#auf-bezug').value,
+        jahr=$('#auf-jahr').value.trim(), bereich=$('#auf-bereich').value.trim();
+  if(!AUF.every(e=>e.titel.trim())){
+    $('#auf-fehler').innerHTML='<div class="hinweis fehler">Jede Datei braucht einen Titel.</div>'; return;
+  }
+  aufnahmeZeichnen(true);
+  let fertig=0, seitenGesamt=0;
+  for(const e of AUF){
+    try{
+      e.stand='Text wird gelesen …'; aufnahmeListe();
+      const seiten = (await textGewinnen(e.datei, (i,n)=>{ e.stand=`Seite ${i} von ${n}`; aufnahmeListe(); }))
+        .map((t,i)=>({t, i:i+1})).filter(x=>x.t.length>=200);
+      if(!seiten.length){ e.stand='kein Text gefunden – übersprungen'; aufnahmeListe(); continue; }
+      const volltext = seiten.map(x=>x.t).join('\n');
+      e.stand='wird gespeichert …'; aufnahmeListe();
+      const {data:qz, error} = await sb.from('quelle').insert({
+        kategorie:kat, bereich:bereich||null, titel:e.titel.trim(), dateiname:e.datei.name,
+        herausgeber:geber||'Herkunft nicht vermerkt', einstufung:stufe, relevanz:bezug,
+        jahr:jahr||null, groesse:e.datei.size, seiten:seiten.length, textseiten:seiten.length,
+        sprache:spracheRaten(volltext), zeichen:volltext.length, volltext:true, vorhanden:false
+      }).select('id').single();
+      if(error) throw error;
+      for(let i=0;i<seiten.length;i+=40){
+        const {error:e2} = await sb.from('quelltext').insert(
+          seiten.slice(i,i+40).map(x=>({quelle:qz.id, seite:x.i, text:x.t, sprache:spracheRaten(volltext)})));
+        if(e2) throw e2;
+        e.stand=`gespeichert: ${Math.min(i+40, seiten.length)} von ${seiten.length} Seiten`; aufnahmeListe();
+      }
+      e.stand=`aufgenommen · ${seiten.length} Seiten`; seitenGesamt+=seiten.length; fertig++;
+      aufnahmeListe();
+    }catch(x){
+      e.stand='Fehler: '+fehlertext(x); aufnahmeListe();
+    }
+  }
+  $('#auf-fehler').innerHTML = `<div class="hinweis">${fertig} von ${AUF.length} Quellen aufgenommen,
+    zusammen ${seitenGesamt} Seiten Text. Die Tagesaufgabe findet sie ab sofort.</div>`;
+  const ab=$('#auf-ab'), los=$('#auf-los');
+  if(ab) ab.disabled=false;
+  if(los){ los.disabled=true; los.textContent='Fertig'; }
+}
+
+/* Grobe Spracherkennung: reicht, um den richtigen Suchindex zu treffen. */
+function spracheRaten(t){
+  const p = t.slice(0, 20000).toLowerCase();
+  const z = (re)=> (p.match(re)||[]).length;
+  const de = z(/\b(und|der|die|das|nicht|werden|eine|dass)\b/g);
+  const en = z(/\b(the|and|of|that|with|which|from|their)\b/g);
+  const fr = z(/\b(les|des|une|dans|pour|est|que|avec)\b/g);
+  return (fr>de && fr>en) ? 'fr' : (en>de ? 'en' : 'de');
 }
 
 function quelleBearbeiten(q){
@@ -1746,8 +2013,8 @@ function quelleBearbeiten(q){
       <label class="fld">Fundstelle<input id="d-herkunft" value="${esc(q&&q.herkunft?q.herkunft:'')}" placeholder="z. B. Informationen zur politischen Bildung 345"></label>
       <label class="fld">Dateiname<input id="d-datei" value="${esc(q?q.dateiname:'')}" spellcheck="false"></label>
       <label class="fld">Bemerkung<textarea id="d-bem" rows="2">${esc(q&&q.bemerkung?q.bemerkung:'')}</textarea></label>
-      ${q&&q.vorhanden?`<div class="small mute">Datei liegt im Cloudspeicher (${mb(q.groesse)}).
-        <button class="link" id="d-ersetzen" style="font-size:14px">Durch neue Datei ersetzen</button></div>`:''}
+      ${q&&q.volltext?`<div class="small mute">Volltext liegt in der Datenbank: ${q.textseiten} Seiten,
+        aus einer PDF von ${mb(q.groesse)} gewonnen. Die Datei selbst wird nicht gespeichert.</div>`:''}
       <div id="d-fehler"></div>
       <div style="display:flex;gap:12px;justify-content:flex-end">
         <button class="btn ghost" id="d-ab">Abbrechen</button>
@@ -1755,8 +2022,6 @@ function quelleBearbeiten(q){
       </div>
     </div>`);
   $('#d-ab').onclick=()=>d.remove();
-  const ers=$('#d-ersetzen');
-  if(ers) ers.onclick=()=>{ d.remove(); quelleHochladen(q); };
   $('#d-ok').onclick=async ()=>{
     const titel=$('#d-titel').value.trim(), datei=$('#d-datei').value.trim();
     if(!titel||!datei){ $('#d-fehler').innerHTML='<div class="hinweis fehler">Titel und Dateiname sind Pflicht.</div>'; return; }
@@ -1776,11 +2041,9 @@ async function ohneBezugEntfernen(){
   const weg = QU_ALLE.filter(q=>q.relevanz==='abseits');
   if(!weg.length) return;
   const liste = weg.map(q=>'· '+q.titel).join('\n');
-  if(!confirm('Diese '+weg.length+' Quellen mitsamt ihren Dateien entfernen?\n\n'+liste
-              +'\n\nDie Fragen bleiben davon unberührt. Die Dateien liegen weiterhin auf deinem Rechner.')) return;
+  if(!confirm('Diese '+weg.length+' Quellen mitsamt ihrem Volltext entfernen?\n\n'+liste
+              +'\n\nDie Fragen bleiben davon unberührt. Die PDF-Dateien liegen weiterhin auf deinem Rechner.')) return;
   toast('Wird entfernt …');
-  const pfade = weg.map(q=>q.pfad).filter(Boolean);
-  if(pfade.length) await sb.storage.from('quellen').remove(pfade);
   const {error} = await sb.from('quelle').delete().in('id', weg.map(q=>q.id));
   if(error){ toast(fehlertext(error)); return; }
   toast(weg.length+' Quellen entfernt.');
@@ -1788,34 +2051,49 @@ async function ohneBezugEntfernen(){
 }
 
 async function quelleLoeschen(q){
-  if(!confirm('„'+q.titel+'“ wirklich löschen? Auch die Datei im Cloudspeicher wird entfernt.')) return;
-  if(q.pfad) await sb.storage.from('quellen').remove([q.pfad]);
+  if(!confirm('„'+q.titel+'“ wirklich löschen? Der Volltext dieser Quelle ('
+              +(q.textseiten||0)+' Seiten) wird mitentfernt und steht der Tagesaufgabe nicht mehr zur Verfügung.')) return;
   const {error} = await sb.from('quelle').delete().eq('id', q.id);
   if(error){ toast(fehlertext(error)); return; }
   toast('Quelle gelöscht.'); renderQuellen();
 }
 
-function quelleHochladen(q){
-  const inp=document.createElement('input');
-  inp.type='file'; inp.accept='.pdf,.txt,.md,.doc,.docx,application/pdf,text/plain';
-  inp.onchange=async ()=>{
-    const f=inp.files[0]; if(!f) return;
-    if(f.size > 100*1024*1024){ toast('Die Datei ist größer als 100 MB.'); return; }
-    toast('Datei wird hochgeladen …');
-    const pfad = q.kategorie+'/'+(q.dateiname||f.name);
-    const {error} = await sb.storage.from('quellen').upload(pfad, f, {upsert:true, contentType:f.type||'application/pdf'});
-    if(error){ toast(fehlertext(error)); return; }
-    const {error:e2} = await sb.from('quelle').update({pfad, groesse:f.size, vorhanden:true, hochgeladen_von:PROFIL.id}).eq('id', q.id);
-    if(e2){ toast(fehlertext(e2)); return; }
-    toast('„'+q.titel+'“ ist im Cloudspeicher.'); renderQuellen();
-  };
-  inp.click();
+let TX_SEITE = 0, TX_QUELLE = null;
+
+/* Der Volltext ersetzt die PDF-Datei: nachlesen, ohne etwas herunterzuladen. */
+async function quelleOeffnen(q){
+  TX_QUELLE = q; TX_SEITE = 0;
+  const d = dialog('<div class="empty">Wird geladen …</div>');
+  d.querySelector('.card').style.maxWidth = '760px';
+  await textSeiteZeigen();
 }
 
-async function quelleOeffnen(q){
-  const {data, error} = await sb.storage.from('quellen').createSignedUrl(q.pfad, 3600);
-  if(error||!data){ toast(fehlertext(error||'Datei nicht gefunden.')); return; }
-  window.open(data.signedUrl, '_blank', 'noopener');
+async function textSeiteZeigen(){
+  const q = TX_QUELLE, d = $('#dlg'); if(!q||!d) return;
+  const kasten = d.querySelector('.card');
+  const {data, error} = await sb.from('quelltext')
+    .select('seite,text').eq('quelle', q.id).order('seite')
+    .range(TX_SEITE, TX_SEITE);
+  const s = data && data[0];
+  const n = q.textseiten || 0;
+  kasten.innerHTML = `
+    <div class="eyebrow">${esc(q.herausgeber||'Quelle')}</div>
+    <h3 style="margin:6px 0 4px">${esc(q.titel)}</h3>
+    <p class="small mute" style="margin:0 0 16px">${esc(q.dateiname)}${q.jahr?' · '+esc(q.jahr):''} · ${n} Seiten mit Text</p>
+    ${error||!s
+      ? '<div class="empty">Für diese Seite liegt kein Text vor.</div>'
+      : `<div class="tx-seite">${esc(s.text)}</div>`}
+    <div class="row" style="gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap">
+      <button class="btn ghost sm" id="tx-zur" ${TX_SEITE<=0?'disabled':''}>← Zurück</button>
+      <span class="small mute" style="flex:1;text-align:center">Seite ${
+        s? s.seite : '–'} · ${TX_SEITE+1} von ${n}</span>
+      <button class="btn ghost sm" id="tx-vor" ${TX_SEITE>=n-1?'disabled':''}>Weiter →</button>
+      <button class="btn sm" id="tx-zu" style="width:100%;margin-top:6px">Schließen</button>
+    </div>`;
+  const z=$('#tx-zur'), v=$('#tx-vor'), x=$('#tx-zu');
+  if(z) z.onclick=()=>{ if(TX_SEITE>0){ TX_SEITE--; textSeiteZeigen(); } };
+  if(v) v.onclick=()=>{ if(TX_SEITE<n-1){ TX_SEITE++; textSeiteZeigen(); } };
+  if(x) x.onclick=()=>d.remove();
 }
 
 /* =====================================================================
@@ -1975,6 +2253,149 @@ async function nutzerLoeschen(id, mail){
 /* =====================================================================
    MEHR – Konto, Installation und Verwaltung an einem Ort
    ===================================================================== */
+/* Der tägliche Lauf erzeugt um 6 Uhr Berliner Zeit einen Abschnitt "Tag N".
+   Diese Auswertung liest den Bestand und rechnet daraus den Stand aus. */
+function tagesstand(){
+  const paket = {};
+  for(const q of ALLES){
+    const b = q.block || '—';
+    (paket[b] = paket[b] || {block:b, n:0, stand:null});
+    paket[b].n++;
+    if(q.stand && (!paket[b].stand || q.stand > paket[b].stand)) paket[b].stand = q.stand;
+  }
+  const tage = Object.values(paket)
+    .filter(p=>/^Tag \d+$/.test(p.block))
+    .sort((a,b)=> parseInt(a.block.slice(4)) - parseInt(b.block.slice(4)));
+  const feste = Object.values(paket).filter(p=>!/^Tag \d+$/.test(p.block));
+
+  /* Nächster Lauf: 6 Uhr Berliner Zeit, heute oder morgen. */
+  const jetzt = new Date();
+  const naechster = new Date(jetzt);
+  naechster.setHours(6,0,0,0);
+  if(naechster <= jetzt) naechster.setDate(naechster.getDate()+1);
+
+  const letzter = tage.at(-1) || null;
+  const heute = heutigesDatum();
+  const heuteDa = !!(letzter && letzter.stand === heute);
+  const tagLuecke = letzter && letzter.stand
+    ? Math.round((new Date(heute) - new Date(letzter.stand)) / 86400000) : null;
+
+  return {tage, feste, letzter, naechster, heuteDa, tagLuecke,
+          fragenAusLaeufen: tage.reduce((a,t)=>a+t.n,0)};
+}
+const heutigesDatum = ()=> new Date().toISOString().slice(0,10);
+
+function tagesstandKachel(){
+  const t = tagesstand();
+  const datum = (iso)=> iso ? new Date(iso).toLocaleDateString('de-DE',
+      {weekday:'short', day:'numeric', month:'long'}) : 'unbekannt';
+  const uhr = t.naechster.toLocaleString('de-DE', {weekday:'long', hour:'2-digit', minute:'2-digit'});
+  const zustand = t.heuteDa ? 'gut'
+    : (t.tagLuecke!==null && t.tagLuecke<=1 ? 'gut' : (t.tagLuecke===null ? 'offen' : 'warnung'));
+  const satz = t.heuteDa
+    ? 'Der heutige Abschnitt ist da.'
+    : (t.tagLuecke===null ? 'Bisher hat noch kein Lauf geschrieben.'
+       : (t.tagLuecke<=1 ? 'Der letzte Lauf liegt einen Tag zurück – der heutige steht noch aus.'
+                         : `Seit ${t.tagLuecke} Tagen ist nichts hinzugekommen.`));
+  return `<button class="kachel" data-v="tagesstand">
+      <h3>Tägliche Fragen <span class="ampel ${zustand}"></span></h3>
+      <p>${esc(satz)} ${t.tage.length} ${t.tage.length===1?'Lauf':'Läufe'} bisher,
+         zusammen ${t.fragenAusLaeufen} Fragen.</p>
+      <span class="zahl">nächster Lauf ${esc(uhr)} Uhr</span>
+    </button>`;
+}
+
+function renderTagesstand(){
+  const t = tagesstand();
+  const datum = (iso)=> iso ? new Date(iso).toLocaleDateString('de-DE',
+      {weekday:'long', day:'numeric', month:'long', year:'numeric'}) : 'unbekannt';
+  const l = letzteJeFrage();
+  const gezeigt = t.tage.slice().reverse();
+  const zeige = gezeigt.slice(0, TS_MEHR);
+
+  $('#ts-inhalt').innerHTML = `
+    <div class="grid g4" style="margin-bottom:26px">
+      <div class="card kpi"><div class="lab">Läufe bisher</div><div class="val">${t.tage.length}</div>
+        <div class="sub">seit dem ersten Abschnitt</div></div>
+      <div class="card kpi"><div class="lab">Letzter Lauf</div><div class="val">${
+        t.letzter? esc(t.letzter.block) : '–'}</div>
+        <div class="sub">${t.letzter? esc(datum(t.letzter.stand)) : 'noch keiner'}</div></div>
+      <div class="card kpi"><div class="lab">Nächster Lauf</div><div class="val">6<span> Uhr</span></div>
+        <div class="sub">${esc(t.naechster.toLocaleDateString('de-DE',{weekday:'long', day:'numeric', month:'long'}))}</div></div>
+      <div class="card kpi"><div class="lab">Fragen aus Läufen</div><div class="val">${t.fragenAusLaeufen}</div>
+        <div class="sub">von ${ALLES.length} insgesamt</div></div>
+    </div>
+
+    ${t.heuteDa
+      ? `<div class="card pad" style="margin-bottom:26px">
+           <p class="small" style="margin:0"><b style="color:var(--ink)">Alles in Ordnung.</b>
+             Der Abschnitt von heute steht in der Anwendung.
+             Der nächste Lauf schreibt morgen früh um 6 Uhr.</p></div>`
+      : `<div class="hinweis fehler" style="margin-bottom:26px">
+          ${t.tagLuecke===null
+            ? `<b>Noch kein Lauf.</b> Die geplante Aufgabe hat bisher keinen Abschnitt geschrieben.`
+            : `<b>Heute noch nichts.</b> Der letzte Abschnitt stammt vom ${esc(datum(t.letzter&&t.letzter.stand))}
+               – das ist ${t.tagLuecke} ${t.tagLuecke===1?'Tag':'Tage'} her. Ein ausgefallener Tag bleibt folgenlos:
+               die Aufgabe zählt vom höchsten vorhandenen Abschnitt weiter, nicht vom Kalender.`}
+         </div>`}
+
+    <div class="sec" style="margin-top:0">
+      <div class="sec-h"><h2>Die einzelnen Läufe</h2><span class="note">neueste zuerst</span></div>
+      <div class="card">
+        ${zeige.length? zeige.map(p=>{
+          const fragen = ALLES.filter(q=>q.block===p.block);
+          const auf = fragen.filter(q=>l[q.id]).length;
+          const proz = fragen.length? Math.round(auf/fragen.length*100) : 0;
+          return `<div class="feld">
+            <span class="sq" style="--kc:var(--ink)"></span>
+            <span class="nm">${esc(p.block)}<small style="display:block;color:var(--muted-2);font-size:12.5px">${
+              esc(datum(p.stand))}</small></span>
+            <span class="bar"><i style="width:${proz}%"></i></span>
+            <span class="qt tnum" style="width:74px">${auf}/${p.n}</span>
+            <span style="flex:none"><button class="btn ghost sm" data-ts-ueben="${esc(p.block)}">Üben</button></span>
+          </div>`;
+        }).join('') : '<div class="empty">Noch kein täglicher Lauf.</div>'}
+        ${gezeigt.length>zeige.length
+          ? `<div class="morerow"><button class="link" id="ts-mehr">Weitere ${
+               Math.min(10, gezeigt.length-zeige.length)} von ${gezeigt.length-zeige.length} anzeigen</button></div>`
+          : (TS_MEHR>10? `<div class="morerow"><button class="link" id="ts-weniger">Wieder einklappen</button></div>`:'')}
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><h2>Feste Abschnitte</h2><span class="note">bleiben unverändert</span></div>
+      <div class="card">
+        ${t.feste.map(p=>`<div class="feld">
+          <span class="sq" style="--kc:var(--muted-2)"></span>
+          <span class="nm">${esc(p.block)}</span>
+          <span class="ct" style="width:auto">${p.n} Fragen</span>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h"><h2>Wie der Lauf arbeitet</h2></div>
+      <div class="card pad">
+        <p class="small" style="margin:0 0 12px">Jeden Morgen um 6 Uhr Berliner Zeit erzeugt eine geplante
+          Aufgabe in der Cloud einen Abschnitt <b>Tag N</b>: 75 Fachtestfragen (25 je Kategorie) und einen
+          vollständigen Sprachtestsatz (3 Artikel, 8 + 22 + 22 Aufgaben).</p>
+        <p class="small" style="margin:0 0 12px">Welche Themenfelder drankommen, bestimmt der Lehrplan – die
+          Aufgabe nimmt die Felder mit dem größten Rückstand. Jede Frage wird an einer Textstelle aus dem
+          Quellenvolltext belegt; Herausgeber und Titel stehen in der Erläuterung.</p>
+        <p class="small mute" style="margin:0">Die Aufgabe ergänzt ausschließlich. Bestehende Abschnitte –
+          besonders die Originalprüfungen und die amtlichen Musteraufgaben – werden nie verändert.</p>
+      </div>
+    </div>`;
+
+  $$('#ts-inhalt [data-ts-ueben]').forEach(b=>b.onclick=()=>{
+    const ids = ALLES.filter(q=>q.block===b.dataset.tsUeben).map(q=>q.id);
+    if(ids.length) start({typ:'auswahl', zeit:0, titel:'Übung · '+b.dataset.tsUeben, ids});
+  });
+  const m=$('#ts-mehr'); if(m) m.onclick=()=>{ TS_MEHR+=10; renderTagesstand(); };
+  const w=$('#ts-weniger'); if(w) w.onclick=()=>{ TS_MEHR=10; renderTagesstand(); };
+}
+let TS_MEHR = 10;
+
 function renderMehr(){
   const l=letzteJeFrage();
   const kacheln = [
@@ -1987,6 +2408,7 @@ function renderMehr(){
 
   $('#mehrgitter').innerHTML = kacheln.map(k=>
     `<button class="kachel" data-v="${k.v}"><h3>${esc(k.t)}</h3><p>${esc(k.p)}</p><span class="zahl">${k.z}</span></button>`).join('')
+    + tagesstandKachel()
     + `<div class="kachel" style="cursor:default">
          <h3>Bestand</h3>
          <p>${ALLES.length} Fragen in ${[...new Set(ALLES.map(q=>q.block))].length} Abschnitten ·

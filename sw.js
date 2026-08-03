@@ -1,14 +1,14 @@
 /* Service Worker: haelt die App offline lauffaehig.
    Programmdateien kommen aus dem Zwischenspeicher, alles andere aus dem Netz. */
-const VERSION = 'tt-2026-08-03-4';
+const VERSION = 'tt-2026-08-03-6';
 const SCHALE = [
   './',
   './index.html',
   './app.js',
-  './supabase.js',
+  './bibliothek/supabase.js',
   './manifest.webmanifest',
-  './icon-192.png',
-  './icon-512.png',
+  './symbole/icon-192.png',
+  './symbole/icon-512.png',
   './apple-touch-icon.png',
 ];
 

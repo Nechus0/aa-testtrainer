@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="Testtrainer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" href="symbole/icon-192.png">
 <style>
 :root{
   --paper:#fff; --tint:#f5f6f7; --tint-2:#eceef0; --line:#d5d9de; --line-soft:#e6e9ec;
@@ -70,7 +70,9 @@ nav button.mehr.offen{color:var(--ink)}
 #navpop .trenner{height:1px;background:var(--line-soft);margin:6px 8px}
 
 /* Seitenkopf */
-.page{padding:56px 0 12px;border-bottom:1px solid var(--line-soft);margin-bottom:48px}
+/* Nur oben und unten setzen – die seitlichen Ränder (samt sicherem Bereich)
+   kommen aus .wrap und würden von einer Kurzschreibweise gelöscht. */
+.page{padding-top:56px;padding-bottom:12px;border-bottom:1px solid var(--line-soft);margin-bottom:48px}
 .eyebrow{font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin-bottom:14px}
 .lead{font-size:20px;line-height:1.5;color:var(--muted);max-width:640px;margin-top:16px}
 .page .row{display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap;padding-bottom:34px}
@@ -370,6 +372,38 @@ details.lp-auf>summary::before{content:"▶ ";font-size:10px;color:var(--muted-2
 details.lp-auf[open]>summary::before{content:"▼ "}
 details.lp-auf>summary:hover{background:var(--tint)}
 
+/* Abdeckung des Lehrplans: Aufstieg über drei Ebenen statt einer langen Liste */
+.lp-brot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 22px;
+  border-bottom:1px solid var(--line-soft);font-size:13.5px;color:var(--muted)}
+.lp-brot span{color:var(--muted-2)}
+.lp-brot b{color:var(--ink);font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-brot .link{font-size:13.5px}
+.feld.lp-zeile[data-lp-tiefer]{cursor:pointer}
+.feld.lp-zeile[data-lp-tiefer]:hover{background:var(--tint)}
+.feld .lp-pfeil{flex:none;width:18px;text-align:right;color:var(--muted-2);font-size:17px}
+.feld.lp-kopf{flex-wrap:wrap;gap:4px 14px}
+.feld.lp-kopf .nm{flex:1 1 auto;font-weight:600;color:var(--ink);font-size:16px;
+  white-space:normal;overflow:visible;text-overflow:clip}
+.feld.lp-kopf .uz{font-size:13px;color:var(--muted-2);font-variant-numeric:tabular-nums;white-space:normal}
+.lp-frei{font-size:11.5px;color:var(--muted-2);border:1px solid var(--line);padding:1px 6px;
+  border-radius:2px;margin-left:8px;white-space:nowrap}
+
+/* Quellen aufnehmen */
+.auf-wahl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  border:1px dashed var(--line);padding:18px;border-radius:3px}
+.auf-zeile{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line-soft);padding-bottom:12px}
+.auf-zeile:last-child{border-bottom:0;padding-bottom:0}
+.auf-titel{flex:1 1 220px;min-width:0;border:1px solid var(--line);border-radius:2px;
+  padding:9px 11px;font:inherit;font-size:15px;background:var(--paper);color:var(--ink)}
+.auf-titel:focus{outline:none;border-color:var(--ink)}
+.auf-info{flex:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Volltext einer Quelle nachlesen */
+.tx-seite{white-space:pre-wrap;font-size:15px;line-height:1.62;color:var(--text);
+  max-height:56vh;overflow:auto;border:1px solid var(--line);padding:18px 20px;
+  background:var(--tint);border-radius:2px;overflow-wrap:anywhere}
+
 /* Kontenliste */
 .konto{display:flex;align-items:center;gap:16px;padding:18px 22px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
 .konto:last-child{border-bottom:0}
@@ -460,13 +494,17 @@ details.lp-auf>summary:hover{background:var(--tint)}
   .brand .s{ display:block; font-size:11.5px; }
 
   /* Seitentitel groß, direkt unter der Marke – iOS „Large Title“. */
-  .page{ padding:16px 0 0; margin-bottom:22px; border-bottom:0; }
-  .page .row{ padding-bottom:16px; gap:16px; }
+  .page{ padding-top:16px; padding-bottom:0; margin-bottom:22px; border-bottom:0; }
+  .page .row{ padding-bottom:16px; gap:14px; flex-direction:column; align-items:stretch }
+  /* Countdown in eine Zeile, damit das Datum nicht über den Rand läuft. */
+  .page .row>div+div{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap }
+  .page .row>div+div .eyebrow{ flex:1 1 100%; margin-bottom:2px }
+  .page .row>div+div .small{ margin-top:0!important }
   .eyebrow{ font-size:11.5px; margin-bottom:8px; }
   h1{ font-size:30px; line-height:1.12; letter-spacing:-.028em; }
   h2{ font-size:19px; }
   .lead{ font-size:16px; line-height:1.5; margin-top:10px; }
-  .cd{ gap:10px } .cd .n{ font-size:44px } .cd .u{ font-size:15px }
+  .cd{ gap:10px } .cd .n{ font-size:34px } .cd .u{ font-size:15px }
 }
 
 /* ---------- 3 · Tab-Leiste unten (aus der vorhandenen <nav>) ----------
@@ -492,12 +530,19 @@ details.lp-auf>summary:hover{background:var(--tint)}
     color:var(--muted-2); white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis;
   }
-  /* Quadrat als Symbol – dieselbe Bildsprache wie .tag::before */
+  /* Symbole als Strichzeichnung: Haus · Zielscheibe · Sprechblase · Person.
+     Als Maske eingebunden, damit die Farbe dem Textzustand folgt. Die SVG-Adresse
+     ist prozentkodiert – ein Semikolon in der Datenadresse bricht die Maske. */
   nav button::before{
-    content:""; width:9px; height:9px; background:#9aa2ac; flex:none;
+    content:""; width:26px; height:26px; flex:none; background:currentColor; opacity:.72;
+    -webkit-mask:var(--ic) center/25px 25px no-repeat; mask:var(--ic) center/25px 25px no-repeat;
   }
   nav button.on{ color:var(--ink); font-weight:700; border-bottom-color:transparent; }
-  nav button.on::before{ background:var(--ink); }
+  nav button.on::before{ opacity:1 }
+  nav button[data-v=dash]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M3.2%2011.2%2012%204l8.8%207.2%22%2F%3E%3Cpath%20d%3D%22M5.6%2010v9.9h12.8V10%22%2F%3E%3C%2Fsvg%3E")}
+  nav button[data-v=train]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%228.4%22%2F%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223.3%22%2F%3E%3C%2Fsvg%3E")}
+  nav button[data-v=fragen]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4.4%206.4h15.2v9.3h-8.7L6.7%2018.9v-3.2H4.4z%22%2F%3E%3Cpath%20d%3D%22M9.4%2010.9h5.2%22%2F%3E%3C%2Fsvg%3E")}
+  nav button[data-v=mehr]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228.4%22%20r%3D%223.6%22%2F%3E%3Cpath%20d%3D%22M5.4%2019.7c1.2-3.2%203.6-4.9%206.6-4.9s5.4%201.7%206.6%204.9%22%2F%3E%3C%2Fsvg%3E")}
   nav button.mehr .pfeil{ display:none; }
 
   /* Das Klappmenü öffnet nach oben, über der Leiste. */
@@ -540,6 +585,16 @@ details.lp-auf>summary:hover{background:var(--tint)}
   .feld{ padding:13px 16px; gap:12px; min-height:56px }
   .feld .bar{ display:none }
   .feld .nm{ font-size:15.5px }
+  /* Lehrplanzeilen zweizeilig: oben der Name, darunter Zahlen und Taste. */
+  .feld.lp-zeile{ gap:5px 10px; flex-wrap:wrap; padding:12px 16px }
+  .feld.lp-zeile .sq{ order:1 }
+  .feld.lp-zeile .nm{ order:2; flex:1 1 0; min-width:0; white-space:normal;
+    overflow:visible; text-overflow:clip; line-height:1.35 }
+  .feld.lp-zeile .lp-pfeil{ order:3 }
+  .feld.lp-zeile .qt{ order:4; width:auto; margin-left:21px; font-size:14.5px }
+  .feld.lp-zeile .ct{ order:5; width:auto; flex:1 1 auto; text-align:left; font-size:12.5px }
+  .feld.lp-kopf .nm{ flex:1 1 100% }
+  .lp-brot{ padding:12px 16px }
   .paket{ padding:13px 16px; gap:10px; flex-wrap:wrap; min-height:56px }
   .paket .pn{ flex:1 1 auto } .paket .pb{ display:none }
   .paket .pt{ flex:1 1 100%; order:3; gap:14px; flex-wrap:wrap } .paket .pa{ order:2 }
@@ -584,17 +639,6 @@ details.lp-auf>summary:hover{background:var(--tint)}
   #q-filter-auf{ min-height:48px; border-radius:12px }
   #q-filter{ border-radius:12px; gap:12px }
   #q-filter .fld{ flex:1 1 100% }
-  #q-aktion{
-    position:sticky; bottom:calc(var(--tableiste) + env(safe-area-inset-bottom));
-    z-index:30; margin:22px -16px 0; padding:12px 16px 14px;
-    background:rgba(255,255,255,.94);
-    -webkit-backdrop-filter:saturate(180%) blur(18px);
-    backdrop-filter:saturate(180%) blur(18px);
-    border-top:1px solid var(--line-soft); gap:8px;
-  }
-  #q-aktion .zahl{ order:0; flex:1 1 100%; text-align:center; font-size:12.5px }
-  #q-aktion .btn{ order:1; margin-left:0; flex:1 1 auto; min-height:52px;
-    border-radius:13px; font-size:16px; padding:0 }
 }
 
 /* ---------- 6 · Prüfung: eine Frage je Bildschirm ---------- */
@@ -604,7 +648,8 @@ details.lp-auf>summary:hover{background:var(--tint)}
      und beim Verlassen  .remove('imLauf')  (siehe mobile-ios-snippets.html) */
   body.imLauf nav,
   body.imLauf #navpop{ display:none }
-  body.imLauf header .hd{ padding-top:calc(6px + env(safe-area-inset-top)); padding-bottom:6px }
+  body.imLauf header{ display:none }
+  body.imLauf .exambar{ padding-top:env(safe-area-inset-top) }
   body.imLauf main{ padding-bottom:calc(96px + env(safe-area-inset-bottom)) }
 
   .exambar{
@@ -803,12 +848,8 @@ details.lp-auf>summary:hover{background:var(--tint)}
 .filterbox .fld{flex:1;min-width:150px}
 .filterbox .link{flex:none;padding-bottom:12px}
 
-.auswahlaktion{display:flex;align-items:center;gap:20px;flex-wrap:wrap;
-  position:sticky;bottom:0;z-index:30;background:var(--paper);
-  border-top:1px solid var(--line);margin-top:28px;padding:18px 0 20px}
-.auswahlaktion .zahl{font-size:15.5px;color:var(--muted)}
-.auswahlaktion .zahl b{color:var(--ink)}
-.auswahlaktion .btn{margin-left:auto}
+.zahlzeile{font-size:14px;color:var(--muted-2);margin:0 2px 16px;font-variant-numeric:tabular-nums}
+.zahlzeile b{color:var(--ink);font-weight:700}
 
 /* "Mehr": Konto und Verwaltung auf einer Seite */
 .mehrgitter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;align-items:start}
@@ -820,6 +861,11 @@ details.lp-auf>summary:hover{background:var(--tint)}
 .kachel h3{font-size:18px}
 .kachel p{font-size:14px;line-height:1.5;color:var(--muted)}
 .kachel .zahl{font-size:13px;color:var(--muted-2);font-variant-numeric:tabular-nums;margin-top:4px}
+.kachel h3 .ampel{display:inline-block;width:9px;height:9px;border-radius:50%;margin-left:9px;
+  vertical-align:2px;background:var(--muted-2)}
+.kachel h3 .ampel.gut{background:#1e7a3c}
+.kachel h3 .ampel.warnung{background:var(--gold)}
+.kachel h3 .ampel.offen{background:var(--muted-2)}
 
 /* Gilt überall: Übersicht entfällt, wenn die Sprungleiste oben steht. */
 .hat-sprung .navi{display:none}
@@ -925,6 +971,7 @@ details.lp-auf>summary:hover{background:var(--tint)}
   <section id="v-train" class="view"><div id="train-menu"></div><div id="train-run" style="display:none"></div></section>
   <section id="v-fragen" class="view"></section>
   <section id="v-mehr" class="view"></section>
+  <section id="v-tagesstand" class="view"></section>
   <section id="v-quellen" class="view"></section>
   <section id="v-nutzer" class="view"></section>
   <section id="v-konto" class="view"></section>
@@ -933,7 +980,7 @@ details.lp-auf>summary:hover{background:var(--tint)}
 
 <div class="toast" id="toast"></div>
 
-<script src="supabase.js"></script>
+<script src="bibliothek/supabase.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -45,8 +45,11 @@ Vier Bereiche, auf dem Telefon und am Rechner gleich:
 |---|---|
 | Übersicht | Countdown, die Aufgaben des Tages, Trefferquote je Kategorie, Verlauf, schwächste Themenfelder |
 | Trainer | frei zusammengestellter Durchgang: Bereiche, Anzahl, Zeitdruck, „nur neue Fragen“, „Fehler wiederholen“, Markierungen, vollständige Prüfungssimulation |
-| Fragen | der gesamte Bestand zum Nachschlagen, gefiltert nach Stand (alle / falsch / nie gesehen / richtig / markiert), Prüfungsteil und Abschnitt; jede Auswahl lässt sich unmittelbar als Durchgang starten |
-| Mehr | Konto, Installation auf dem iPhone – für Administratoren zusätzlich Quellen und Nutzer |
+| Fragen | der gesamte Bestand zum Nachschlagen, gefiltert nach Stand (alle / falsch / nie gesehen / richtig / markiert), Prüfungsteil und Abschnitt; darunter die Abdeckung des Lehrplans mit Aufstieg über Prüfungsteil → Oberfeld → Themenfeld |
+| Mehr | Konto, Installation auf dem iPhone, Stand der täglichen Läufe – für Administratoren zusätzlich Quellen und Nutzer |
+
+Geübt wird ausschließlich über die Übersicht (Aufgaben des Tages) und den
+Trainer. „Fragen“ ist zum Nachschlagen da.
 
 Jede Frage hat eine Erläuterung. Markierungen aus einem Durchgang bleiben
 erhalten und sind im Bereich „Fragen“ wieder auffindbar.
@@ -55,16 +58,35 @@ erhalten und sind im Bereich „Fragen“ wieder auffindbar.
 
 ## Aufbau
 
-| Datei | Zweck |
-|---|---|
-| `index.html` | Gerüst und Gestaltung |
-| `app.js` | gesamte Anwendungslogik |
-| `supabase.js` | mitgelieferte Client-Bibliothek (keine Abhängigkeit von einem CDN) |
-| `sw.js`, `manifest.webmanifest`, `icon-*.png` | Installation als App auf dem Telefon |
+```
+index.html               Gerüst und Gestaltung
+app.js                   gesamte Anwendungslogik
+sw.js                    Zwischenspeicher für den Betrieb ohne Netz
+manifest.webmanifest     Angaben für die Installation auf dem Telefon
+apple-touch-icon.png     Symbol für den Home-Bildschirm
+bibliothek/              mitgelieferte fremde Bibliotheken
+  supabase.js            Client der Datenbank
+  pdf.mjs                pdf.js, nur beim Aufnehmen neuer Quellen geladen
+  pdf.worker.mjs
+symbole/                 Symbole der installierten App
+  icon-192.png  icon-512.png  icon-maskable.png
+doku/
+  Anleitung_Tagesaufgabe.md   Wortlaut und Einrichtung der täglichen Aufgabe
+```
+
+`index.html`, `app.js`, `sw.js` und `manifest.webmanifest` müssen im
+Wurzelverzeichnis bleiben: GitHub Pages liefert die Seite von dort aus, und der
+Service Worker deckt nur ab, was unterhalb seines eigenen Ortes liegt.
 
 Fragen, Durchgänge, Antworten, Konten und Quellen liegen in einem
 Supabase-Projekt (Postgres mit Zeilenschutz). Im Verzeichnis liegen keine
 Prüfungsunterlagen und kein Fragenbestand.
+
+Die Quellen liegen ausschließlich als **Volltext** in der Datenbank; PDF-Dateien
+werden nicht mehr gespeichert. Neue Quellen nimmt ein Administrator unter
+*Mehr → Quellen → Quellen aufnehmen* auf: Datei wählen, Prüfungsteil und
+Herkunft festlegen – der Text wird im Browser gewonnen (`pdf.mjs`) und
+seitenweise nach `quelltext` geschrieben.
 
 ### Datenbank
 
@@ -99,10 +121,14 @@ zur Verfügung; Ergebnisse werden nachgereicht, sobald wieder Netz da ist.
 
 **Als Administrator.** Unter *Mehr* erscheinen zwei zusätzliche Kacheln:
 
-- *Quellen* – Verzeichnis nach Sachgebieten, Umbenennen, Löschen, Hochladen
-  neuer Dateien in den Cloudspeicher.
+- *Quellen* – Verzeichnis nach Prüfungsteilen, Volltext nachlesen, Angaben
+  bearbeiten, Quellen entfernen und über *Quellen aufnehmen* neue Dateien
+  einlesen.
 - *Nutzer* – Einladungslinks erzeugen, Rollen und Status ändern, Passwörter
   neu setzen, Konten löschen.
+
+Die Kachel *Tägliche Fragen* zeigt jedem Konto, wann der letzte Abschnitt kam,
+wann der nächste kommt und was bisher zusammengekommen ist.
 
 ---
 
@@ -112,7 +138,7 @@ Eine geplante Aufgabe erzeugt jeden Morgen um 6 Uhr einen neuen Abschnitt
 `Tag N`: 75 Fachtestfragen (25 je Kategorie) und einen vollständigen
 Sprachtestsatz (3 Artikel, 8 + 22 + 22 Aufgaben). Sie schreibt unmittelbar in
 die Datenbank; der neue Abschnitt erscheint in der Anwendung unter „Heute“.
-Der Wortlaut der Aufgabe steht in `Anleitung_Tagesaufgabe.md`.
+Der Wortlaut der Aufgabe steht in `doku/Anleitung_Tagesaufgabe.md`.
 
 Welche Themenfelder drankommen, bestimmt der Lehrplan: die Aufgabe nimmt die
 Felder mit dem größten Rückstand, sodass alle 167 Felder innerhalb von rund
