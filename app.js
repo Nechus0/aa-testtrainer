@@ -35,6 +35,7 @@ const CACHE_WARTE   = 'aa_warteschlange_v1';
 let PROFIL = null;                       // Zeile aus public.profile
 let F = [], FR = [], ALLES = [], BY_ID = {};
 let S = {antworten:[], sessions:[]};
+let MARKIERT = new Set();   /* dauerhafte Markierungen, überdauern den Durchgang */
 let LAUF = null, TICK = null;
 let ANSICHT = 'dash';
 
@@ -270,10 +271,12 @@ async function ladeFragen(){
 
 async function ladeFortschritt(){
   try{
-    const [a, d] = await Promise.all([
+    const [a, d, m] = await Promise.all([
       alleZeilen('antwort','frage_id,kat,gewaehlt,richtig,datum,ts'),
-      alleZeilen('durchgang','id,datum,ts,titel,n,richtig,quote,punkte,max_punkte,dauer,kats')
+      alleZeilen('durchgang','id,datum,ts,titel,n,richtig,quote,punkte,max_punkte,dauer,kats'),
+      alleZeilen('markierung','frage_id')
     ]);
+    MARKIERT = new Set((m||[]).map(r=>r.frage_id));
     S.antworten = a.map(r=>({id:r.frage_id, kat:r.kat, gew:r.gewaehlt, ok:r.richtig, datum:r.datum, ts:r.ts}))
                    .sort((x,y)=>String(x.ts).localeCompare(String(y.ts)));
     S.sessions  = d.map(r=>({datum:r.datum, ts:r.ts, titel:r.titel, n:r.n, richtig:r.richtig, quote:r.quote,
@@ -321,6 +324,14 @@ async function warteschlangeAbarbeiten(){
   if(w.length && !rest.length) toast('Zwischengespeicherte Ergebnisse wurden übertragen.');
 }
 
+async function markierungSetzen(frageId, an){
+  if(an) MARKIERT.add(frageId); else MARKIERT.delete(frageId);
+  try{
+    if(an) await sb.from('markierung').upsert({nutzer:PROFIL.id, frage_id:frageId});
+    else   await sb.from('markierung').delete().eq('nutzer',PROFIL.id).eq('frage_id',frageId);
+  }catch(e){ /* offline: die Markierung gilt in dieser Sitzung */ }
+}
+
 async function sichern(sess, neueAntworten){
   try{
     await durchgangSpeichern(sess, neueAntworten);
@@ -335,44 +346,20 @@ async function sichern(sess, neueAntworten){
    GERÜST DER ANSICHTEN
    ===================================================================== */
 /* Oben stehen die Übungsbereiche, alles Verwaltende liegt im Klappmenü. */
-/* Dritter Eintrag: Kurzform für die Tab-Leiste auf dem Telefon. */
-const HAUPT = [['dash','Dashboard','Übersicht'], ['train','Trainer','Trainer'],
-               ['archiv','Fehlerarchiv','Fehler'], ['pool','Fragenpool','Fragen']];
+/* Beide Formate zeigen dieselben vier Bereiche. */
+const HAUPT = [['dash','Übersicht'], ['train','Trainer'], ['fragen','Fragen'], ['mehr','Mehr']];
 const engesGeraet = ()=> matchMedia('(max-width:720px)').matches;
-const menuPunkte = ()=> istAdmin()
-  ? [['konto','Konto','Zugang und Installation'], null,
-     ['quellen','Quellen','Grundlage der Fragen'], ['nutzer','Nutzer','Konten und Einladungen']]
-  : [['konto','Konto','Zugang und Installation']];
 
+/* Unterseiten von "Mehr" färben den Reiter mit ein. */
+const UNTER_MEHR = ['mehr','konto','quellen','nutzer'];
 function navBauen(){
-  const imMenu = menuPunkte().filter(Boolean).some(p=>p[0]===ANSICHT);
-  const eng = engesGeraet();
-  $('#nav').innerHTML = HAUPT.map(([v,t,kurz])=>
-      `<button data-v="${v}" class="${v===ANSICHT?'on':''}">${eng? (kurz||t) : t}</button>`).join('')
-    + `<button class="mehr${imMenu?' on':''}" id="nav-mehr" aria-haspopup="true" aria-expanded="false">${
-        eng ? 'Mehr' : (istAdmin()?'Verwaltung':'Konto')}<span class="pfeil">▼</span></button>`;
-  $('#navpop').innerHTML = (istAdmin()? '<div class="kopfzeile">Verwaltung</div>':'')
-    + menuPunkte().map(p=> p===null ? '<div class="trenner"></div>'
-        : `<button data-v="${p[0]}" class="${p[0]===ANSICHT?'on':''}">${p[1]}<i>${p[2]}</i></button>`).join('');
-  $$('#nav button[data-v]').forEach(b=>b.onclick=()=>{ menuZu(); go(b.dataset.v); });
-  $$('#navpop button').forEach(b=>b.onclick=()=>{ menuZu(); go(b.dataset.v); });
-  $('#nav-mehr').onclick = (e)=>{ e.stopPropagation(); menuUm(); };
+  $('#nav').innerHTML = HAUPT.map(([v,t])=>{
+    const an = v===ANSICHT || (v==='mehr' && UNTER_MEHR.includes(ANSICHT));
+    return `<button data-v="${v}" class="${an?'on':''}">${t}</button>`;
+  }).join('');
+  $('#navpop').innerHTML='';
+  $$('#nav button[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
 }
-function menuZu(){
-  $('#navpop').classList.remove('offen');
-  const b=$('#nav-mehr'); if(b){ b.classList.remove('offen'); b.setAttribute('aria-expanded','false'); }
-}
-function menuUm(){
-  const p=$('#navpop'), b=$('#nav-mehr');
-  const auf = !p.classList.contains('offen');
-  p.classList.toggle('offen', auf); b.classList.toggle('offen', auf);
-  b.setAttribute('aria-expanded', auf?'true':'false');
-}
-document.addEventListener('click', (e)=>{
-  const p=$('#navpop');
-  if(p && p.classList.contains('offen') && !p.contains(e.target)) menuZu();
-});
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') menuZu(); });
 
 function schaleBauen(){
   $('#v-dash').innerHTML = `
@@ -444,42 +431,47 @@ function schaleBauen(){
       </div>
     </div>`;
 
-  $('#v-archiv').innerHTML = `
-    <div class="wrap page">
-      <div class="eyebrow">Wiederholung</div>
-      <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Fehlerarchiv</h1>
-        <p class="lead">Alles, was du zuletzt falsch beantwortet hast. Wer hier aufräumt, gewinnt die meisten Punkte.</p>
-      </div></div>
-    </div>
-    <div class="wrap"><div id="archivbox"></div></div>`;
-
-  $('#v-pool').innerHTML = `
+  $('#v-fragen').innerHTML = `
     <div class="wrap page">
       <div class="eyebrow">Bestand</div>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Fragenpool</h1>
-        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung – und wie weit der Lehrplan abgedeckt ist.</p>
+        <h1>Fragen</h1>
+        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung – gefiltert nach Stand, Prüfungsteil und Abschnitt.</p>
       </div></div>
     </div>
     <div class="wrap">
-      <div class="sec" style="margin-top:0;margin-bottom:40px">
+      <div class="statusfilter" id="q-status"></div>
+      <div class="suchzeile">
+        <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …">
+        <button class="btn ghost" id="q-filter-auf" aria-expanded="false">Filter</button>
+      </div>
+      <div class="filterbox" id="q-filter" hidden>
+        <label class="fld">Prüfungsteil<select id="q-kat"></select></label>
+        <label class="fld">Abschnitt<select id="q-block"></select></label>
+        <button class="link" id="q-reset">Filter zurücksetzen</button>
+      </div>
+      <div id="q-kopf"></div>
+      <div id="poollist"></div>
+      <div class="auswahlaktion" id="q-aktion"></div>
+      <div class="sec">
         <div class="sec-h"><h2>Abdeckung des Lehrplans</h2><span class="note" id="lp-note"></span></div>
         <div id="lehrplan"></div>
       </div>
-      <div class="card pad" style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:26px">
-        <label class="fld" style="flex:1;min-width:220px">Suche
-          <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …"></label>
-        <label class="fld" style="flex:1;min-width:150px">Kategorie<select id="q-kat"></select></label>
-        <label class="fld" style="flex:1;min-width:150px">Abschnitt<select id="q-block"></select></label>
-        <span class="small mute" id="q-count" style="padding-bottom:12px"></span>
-      </div>
-      <div id="poollist"></div>
     </div>`;
+
+  $('#v-mehr').innerHTML = `
+    <div class="wrap page">
+      <div class="eyebrow">Konto und Verwaltung</div>
+      <div class="row"><div style="flex:1;min-width:280px">
+        <h1>Mehr</h1>
+        <p class="lead">Zugang, Installation auf dem Telefon, Fortschritt – und für Administratoren Quellen und Nutzer.</p>
+      </div></div>
+    </div>
+    <div class="wrap"><div class="mehrgitter" id="mehrgitter"></div></div>`;
 
   $('#v-quellen').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow">Verwaltung</div>
+      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Quellen</h1>
         <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst.</p>
@@ -502,7 +494,7 @@ function schaleBauen(){
 
   $('#v-nutzer').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow">Verwaltung</div>
+      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Nutzer</h1>
         <p class="lead">Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.</p>
@@ -533,7 +525,7 @@ function schaleBauen(){
 
   $('#v-konto').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow">Persönlich</div>
+      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Konto</h1>
         <p class="lead">Zugang, Fortschritt und Installation auf dem Telefon.</p>
@@ -555,12 +547,13 @@ function countdown(){
 function go(v){
   ANSICHT=v;
   navBauen();
+  setTimeout(()=>$$('[data-zurueck]').forEach(b=>b.onclick=()=>go('mehr')), 0);
   $$('.view').forEach(s=>s.classList.toggle('on', s.id==='v-'+v));
   window.scrollTo({top:0});
   if(v==='dash') renderDash();
   if(v==='train'){ if(!LAUF || LAUF.phase==='ergebnis'){ LAUF=null; renderMenu(); } }
-  if(v==='archiv') renderArchiv();
-  if(v==='pool') renderPool();
+  if(v==='fragen') renderFragen();
+  if(v==='mehr') renderMehr();
   if(v==='quellen') renderQuellen();
   if(v==='nutzer') renderNutzer();
   if(v==='konto') renderKonto();
@@ -819,7 +812,8 @@ const AUSWAHL = [
   {id:'alle',   name:'Alles gemischt',   erl:'Zufällig aus dem gesamten Bestand der gewählten Bereiche.'},
   {id:'neu',    name:'Nur neue Fragen',  erl:'Nur was du noch nie beantwortet hast.'},
   {id:'fehler', name:'Fehler wiederholen', erl:'Nur Fragen, die du zuletzt falsch hattest – der wirksamste Teil.'},
-  {id:'schwach',name:'Schwächste Themen', erl:'Bevorzugt Themenfelder mit der niedrigsten Trefferquote.'}
+  {id:'schwach',name:'Schwächste Themen', erl:'Bevorzugt Themenfelder mit der niedrigsten Trefferquote.'},
+  {id:'mark',   name:'Markierte Fragen',  erl:'Was du im Durchgang mit dem Sternchen versehen hast.'}
 ];
 let TR = {bereiche:new Set(['recht','geschichte','wirtschaft']), auswahl:'alle', anzahl:25, zeit:false};
 
@@ -832,6 +826,7 @@ function trPool(){
   let pool=[...TR.bereiche].flatMap(trBereichFragen);
   if(TR.auswahl==='neu')    pool=pool.filter(q=>!l[q.id]);
   if(TR.auswahl==='fehler') pool=pool.filter(q=>l[q.id] && !l[q.id].ok);
+  if(TR.auswahl==='mark')   pool=pool.filter(q=>MARKIERT.has(q.id));
   if(TR.auswahl==='schwach'){
     const feld={};
     for(const a of S.antworten){ const q=BY_ID[a.id]; if(!q) continue;
@@ -1077,8 +1072,10 @@ function baueTeile(cfg){
                               ? frTextsatz(frTeilFragen(t), FR_TEIL[t].fragen)
                               : pick(frTeilFragen(t), FR_TEIL[t].fragen)}));
     case 'frFehler':return [{fragen:shuffle(falscheOffen(FR))}];
-    case 'fehlerAlle': return [{fragen:pick(falscheOffen(ALLES), cfg.n||9999)}];
-    case 'fehlerFeld': return [{fragen:pick(falscheOffen(ALLES).filter(q=>themenfeld(q)===cfg.feld), cfg.n||9999)}];
+    case 'auswahl': {
+      const menge = (cfg.ids||[]).map(id=>BY_ID[id]).filter(Boolean);
+      return [{fragen: cfg.n? pick(menge, cfg.n) : shuffle(menge)}];
+    }
     case 'trainer': {
       /* Textverständnis artikelweise ziehen, damit die Lesetexte vollständig bleiben. */
       const pool=trPool();
@@ -1103,7 +1100,9 @@ function baueTeile(cfg){
 function start(cfg){
   const teile=baueTeile(cfg).filter(t=>t.fragen.length);
   if(!teile.length){ toast('Für diesen Durchgang sind gerade keine Fragen vorhanden.'); return; }
-  LAUF={cfg, view:'train', mount:'#train-run', teile, ti:0, i:0, antw:{}, mark:{}, start:Date.now(), phase:'lauf'};
+  const vorMark={};
+  for(const t of teile) for(const f of t.fragen) if(MARKIERT.has(f.id)) vorMark[f.id]=true;
+  LAUF={cfg, view:'train', mount:'#train-run', teile, ti:0, i:0, antw:{}, mark:vorMark, start:Date.now(), phase:'lauf'};
   $('#train-menu').style.display='none';
   $('#train-run').style.display='';
   document.body.classList.add('imLauf');   /* Tab-Leiste weicht dem Prüfungsfuß */
@@ -1207,7 +1206,11 @@ function renderFrage(){
 
   MM('.opts .opt').forEach(b=>b.onclick=()=>{ LAUF.antw[q.id]=+b.dataset.o; if(LAUF.i<n-1) LAUF.i++; renderFrage(); });
   MM('.pg').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
-  M('#mark').onclick=()=>{ LAUF.mark[q.id]=!LAUF.mark[q.id]; renderFrage(); };
+  M('#mark').onclick=()=>{
+    LAUF.mark[q.id]=!LAUF.mark[q.id];
+    markierungSetzen(q.id, !!LAUF.mark[q.id]);
+    renderFrage();
+  };
 
   /* Sprungleiste: Klicks binden und die aktuelle Frage mittig nachführen. */
   MM('#sprung button').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
@@ -1349,50 +1352,6 @@ function renderErgebnis(alle, sess){
 /* =====================================================================
    FEHLERARCHIV
    ===================================================================== */
-let ARCHIV_OFFEN=new Set(), ARCHIV_MEHR={};
-
-function renderArchiv(){
-  const fal=falscheOffen(ALLES), l=letzteJeFrage();
-  if(!fal.length){
-    $('#archivbox').innerHTML='<div class="card"><div class="empty">Kein offener Fehler. Entweder läuft es gut – oder es fehlt noch an Durchgängen.</div></div>';
-    return;
-  }
-  /* Nach Themenfeld bündeln: dort sitzt die eigentliche Lücke. */
-  const feld={};
-  for(const q of fal){ const s=themenfeld(q); (feld[s]=feld[s]||{s, kat:q.kategorie, n:0}); feld[s].n++; }
-  const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,6);
-
-  $('#archivbox').innerHTML=
-    `<div class="card pad" style="display:flex;align-items:center;gap:22px;margin-bottom:22px;flex-wrap:wrap">
-       <div style="flex:1;min-width:240px">
-         <div style="font-size:19px"><b>${fal.length} ${fal.length===1?'Frage':'Fragen'}</b> hast du zuletzt falsch beantwortet.</div>
-         <div class="small mute" style="margin-top:8px">Verteilt auf ${Object.keys(feld).length} Themenfelder.
-           Am dichtesten: ${felder.slice(0,3).map(f=>esc(f.s)+' ('+f.n+')').join(', ')}.</div>
-       </div>
-       <div style="display:flex;gap:12px;flex-wrap:wrap">
-         <button class="btn" id="a-start">${fal.length>50? '50 wiederholen' : (fal.length===1?'Wiederholen':'Alle '+fal.length+' wiederholen')}</button>
-         ${fal.length>50?`<button class="btn ghost" id="a-alle">Alle ${fal.length}</button>`:''}
-       </div></div>
-     <div class="card" style="margin-bottom:26px">
-       ${felder.map(f=>`<div class="feld k-${f.kat}">
-          <span class="sq"></span><span class="nm">${esc(f.s)}</span>
-          <span class="ct fehler" style="width:auto">${f.n}</span>
-          <span style="flex:none"><button class="btn ghost sm" data-feld="${esc(f.s)}">Üben</button></span>
-        </div>`).join('')}
-     </div>
-     <div id="archivliste"></div>`;
-
-  gruppenliste('#archivliste', fal, l, ARCHIV_OFFEN, ARCHIV_MEHR, 10, false, 'Kein offener Fehler.');
-  $$('#archivliste [data-mehr]').forEach(x=>x.onclick=()=>{
-    ARCHIV_MEHR[x.dataset.mehr]=(ARCHIV_MEHR[x.dataset.mehr]||10)+10; ARCHIV_OFFEN.add(x.dataset.mehr); renderArchiv(); });
-  $$('#archivliste [data-weniger]').forEach(x=>x.onclick=()=>{ ARCHIV_MEHR[x.dataset.weniger]=10; renderArchiv(); });
-
-  $('#a-start').onclick=()=>start({typ:'fehlerAlle', n:50, zeit:0, titel:'Wiederholung'});
-  const aa=$('#a-alle'); if(aa) aa.onclick=()=>start({typ:'fehlerAlle', zeit:0, titel:'Wiederholung · alle'});
-  $$('#archivbox [data-feld]').forEach(x=>x.onclick=()=>
-    start({typ:'fehlerFeld', feld:x.dataset.feld, zeit:0, titel:'Wiederholung · '+x.dataset.feld}));
-}
-
 /* =====================================================================
    FRAGENPOOL
    ===================================================================== */
@@ -1458,20 +1417,103 @@ async function renderLehrplan(){
   zeichnen();
 }
 
-function renderPool(){
-  renderLehrplan();
+const STATUS = [
+  {id:'alle',    name:'Alle',        test:()=>true},
+  {id:'falsch',  name:'Falsch',      test:(q,l)=> l[q.id] && !l[q.id].ok},
+  {id:'offen',   name:'Nie gesehen', test:(q,l)=> !l[q.id]},
+  {id:'richtig', name:'Richtig',     test:(q,l)=> l[q.id] && l[q.id].ok},
+  {id:'mark',    name:'Markiert',    test:(q)=> MARKIERT.has(q.id)}
+];
+let Q = {status:'alle'};
+let TREFFER = [];
+
+function renderFragen(){
   const ks=$('#q-kat'), bs=$('#q-block');
   if(!ks.options.length){
     ks.innerHTML='<option value="">alle</option>'+ALLE.concat('franzoesisch').map(k=>`<option value="${k}">${katKurz(k)}</option>`).join('');
-    [ks,bs].forEach(e=>e.onchange=poolList);
-    $('#q-search').oninput=poolList;
+    [ks,bs].forEach(e=>e.onchange=fragenListe);
+    $('#q-search').oninput=fragenListe;
+    $('#q-filter-auf').onclick=()=>{
+      const box=$('#q-filter'), auf=box.hidden;
+      box.hidden=!auf; $('#q-filter-auf').setAttribute('aria-expanded', String(auf));
+    };
+    $('#q-reset').onclick=()=>{ ks.value=''; bs.value=''; $('#q-search').value=''; fragenListe(); };
   }
   const bl=[...new Set(ALLES.map(q=>q.block))].sort((a,b)=>(a.startsWith('Tag')?1:0)-(b.startsWith('Tag')?1:0)||a.localeCompare(b,'de',{numeric:true}));
   const alt=bs.value;
   bs.innerHTML='<option value="">alle</option>'+bl.map(b=>`<option>${esc(b)}</option>`).join('');
   if(bl.includes(alt)) bs.value=alt;
-  poolList();
+  fragenListe();
+  renderLehrplan();
 }
+
+function fragenListe(){
+  const l=letzteJeFrage();
+  const suche=$('#q-search').value.toLowerCase().trim(), kat=$('#q-kat').value, block=$('#q-block').value;
+  const grund = ALLES.filter(q=>(!kat||q.kategorie===kat) && (!block||q.block===block)
+    && (!suche || (q.frage+' '+q.optionen.join(' ')+' '+q.erlaeuterung+' '+(q.thema||'')).toLowerCase().includes(suche)));
+
+  /* Die Filtertaste zeigt an, ob überhaupt etwas eingeengt ist. */
+  const fb=$('#q-filter-auf');
+  if(fb){ const eng = !!(kat||block);
+    fb.classList.toggle('an', eng);
+    fb.textContent = eng ? 'Filter · '+[kat?katKurz(kat):null, block||null].filter(Boolean).join(', ') : 'Filter'; }
+
+  /* Der Statusfilter zählt immer über die bereits gesetzten Achsen. */
+  $('#q-status').innerHTML = STATUS.map(st=>{
+    const n = grund.filter(q=>st.test(q,l)).length;
+    return `<button data-status="${st.id}" class="${Q.status===st.id?'an':''}">${esc(st.name)}<em>${n}</em></button>`;
+  }).join('');
+  $$('#q-status button').forEach(b=>b.onclick=()=>{ Q.status=b.dataset.status; fragenListe(); });
+
+  const st = STATUS.find(x=>x.id===Q.status) || STATUS[0];
+  TREFFER = grund.filter(q=>st.test(q,l));
+  const gefiltert = !!(suche||kat||block) || Q.status!=='alle';
+
+  /* Bei Fehlern und Markierungen die dichtesten Themenfelder voranstellen. */
+  const kopf=$('#q-kopf');
+  if((Q.status==='falsch'||Q.status==='mark') && TREFFER.length){
+    const feld={};
+    for(const q of TREFFER){ const f=themenfeld(q); (feld[f]=feld[f]||{f, kat:q.kategorie, n:0}); feld[f].n++; }
+    const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,6);
+    kopf.innerHTML = `<div class="card" style="margin-bottom:22px">
+      <div class="feld" style="border-bottom:1px solid var(--line)">
+        <span class="nm" style="font-weight:600;color:var(--ink)">Dichteste Themenfelder</span>
+        <span class="ct" style="width:auto">${Object.keys(feld).length} insgesamt</span></div>
+      ${felder.map(f=>`<div class="feld k-${f.kat}">
+        <span class="sq"></span><span class="nm">${esc(f.f)}</span>
+        <span class="ct fehler" style="width:auto">${f.n}</span>
+        <span style="flex:none"><button class="btn ghost sm" data-feld="${esc(f.f)}">Üben</button></span></div>`).join('')}
+    </div>`;
+    $$('#q-kopf [data-feld]').forEach(x=>x.onclick=()=>{
+      const feldname=x.dataset.feld;
+      start({typ:'auswahl', zeit:0, titel:'Wiederholung · '+feldname,
+             ids:TREFFER.filter(q=>themenfeld(q)===feldname).map(q=>q.id)});
+    });
+  } else kopf.innerHTML='';
+
+  gruppenliste('#poollist', TREFFER, l, POOL_OFFEN, POOL_MEHR, 20, gefiltert,
+    'Keine Frage passt zu dieser Auswahl.');
+  $$('#poollist [data-mehr]').forEach(x=>x.onclick=()=>{
+    POOL_MEHR[x.dataset.mehr]=(POOL_MEHR[x.dataset.mehr]||20)+20; POOL_OFFEN.add(x.dataset.mehr); fragenListe(); });
+  $$('#poollist [data-weniger]').forEach(x=>x.onclick=()=>{ POOL_MEHR[x.dataset.weniger]=20; fragenListe(); });
+
+  /* Die Fußtaste startet immer genau die gerade gefilterte Menge. */
+  const viele = TREFFER.length>50;
+  $('#q-aktion').innerHTML = TREFFER.length
+    ? `<span class="zahl"><b>${TREFFER.length}</b> von ${ALLES.length} Fragen${
+         Q.status==='alle'?'':' · '+esc(st.name.toLowerCase())}</span>
+       ${viele?`<button class="btn ghost" id="q-alle">Alle ${TREFFER.length} üben</button>`:''}
+       <button class="btn" id="q-ueben">${viele? '50 üben' : (TREFFER.length===1?'Diese Frage üben':'Diese '+TREFFER.length+' üben')}</button>`
+    : `<span class="zahl">Keine Frage in dieser Auswahl</span>`;
+  const ub=$('#q-ueben');
+  if(ub) ub.onclick=()=>start({typ:'auswahl', n:viele?50:0, zeit:0,
+    titel:'Üben · '+(Q.status==='alle'?'Auswahl':st.name), ids:TREFFER.map(q=>q.id)});
+  const ua=$('#q-alle');
+  if(ua) ua.onclick=()=>start({typ:'auswahl', zeit:0,
+    titel:'Üben · '+(Q.status==='alle'?'Auswahl':st.name), ids:TREFFER.map(q=>q.id)});
+}
+
 /* Eine Frage als aufklappbarer Eintrag. */
 function poolEintrag(q, a){
   return `<details class="rev"><summary>
@@ -1498,8 +1540,12 @@ function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert
   const box=$(ziel); if(!box) return;
   const gruppen=GRUPPEN.map(g=>({g, items:fragen.filter(g.passt)})).filter(x=>x.items.length);
   if(!gruppen.length){ box.innerHTML='<div class="card"><div class="empty">'+leer+'</div></div>'; return; }
+  /* Ein Filter klappt nur dann von selbst auf, wenn die Auswahl klein genug
+     ist, um sie am Stück zu überblicken. Sonst bleibt der Abschnittsindex
+     stehen und die Seite bleibt kurz – auch bei tausenden Fragen. */
+  const kompakt = fragen.length > 40 && gruppen.length > 1;
   box.innerHTML = gruppen.map(({g,items})=>{
-    const auf = gefiltert || offenSet.has(g.id);
+    const auf = offenSet.has(g.id) || (gefiltert && !kompakt);
     const zeigt = Math.min(items.length, mehrZaehler[g.id] || schritt);
     return `<details class="gebiet" data-gruppe="${g.id}"${auf?' open':''}>
       <summary>
@@ -1515,25 +1561,14 @@ function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert
           : (items.length>schritt? `<div class="morerow" style="border-top:0;padding-left:0"><button class="link" data-weniger="${g.id}">Wieder einklappen</button></div>`:'')}
       </div>
     </details>`;
-  }).join('');
+  }).join('')
+  + (kompakt ? `<p class="hint" style="margin:12px 2px 0">${fragen.length} Fragen in ${gruppen.length} Prüfungsteilen. Öffne einen Prüfungsteil, um die Fragen zu lesen – oder starte die Auswahl unten unmittelbar als Durchgang.</p>` : '');
   $$(ziel+' .gebiet').forEach(d=>d.ontoggle=()=>{
     if(d.open) offenSet.add(d.dataset.gruppe); else offenSet.delete(d.dataset.gruppe);
   });
   return {gruppen, box};
 }
 
-function poolList(){
-  const s=$('#q-search').value.toLowerCase().trim(), k=$('#q-kat').value, b=$('#q-block').value, l=letzteJeFrage();
-  let r=ALLES.filter(q=>(!k||q.kategorie===k)&&(!b||q.block===b));
-  if(s) r=r.filter(q=>(q.frage+' '+q.optionen.join(' ')+' '+q.erlaeuterung+' '+(q.thema||'')).toLowerCase().includes(s));
-  const gefiltert=!!(s||k||b);
-  $('#q-count').textContent=r.length+' von '+ALLES.length+' Fragen';
-  gruppenliste('#poollist', r, l, POOL_OFFEN, POOL_MEHR, 20, gefiltert, 'Keine Frage passt zu diesen Filtern.');
-  $$('#poollist [data-mehr]').forEach(x=>x.onclick=()=>{
-    POOL_MEHR[x.dataset.mehr]=(POOL_MEHR[x.dataset.mehr]||20)+20; POOL_OFFEN.add(x.dataset.mehr); poolList(); });
-  $$('#poollist [data-weniger]').forEach(x=>x.onclick=()=>{
-    POOL_MEHR[x.dataset.weniger]=20; poolList(); });
-}
 
 /* =====================================================================
    QUELLEN (nur Administratoren)
@@ -1926,6 +1961,31 @@ async function nutzerLoeschen(id, mail){
   if(!confirm('Konto '+mail+' endgültig löschen? Alle Ergebnisse dieser Person gehen verloren.')) return;
   try{ await funktionRufen('nutzer-verwalten', {aktion:'loeschen', id}); toast('Konto gelöscht.'); nutzerlisten(); }
   catch(e){ toast(fehlertext(e)); }
+}
+
+
+/* =====================================================================
+   MEHR – Konto, Installation und Verwaltung an einem Ort
+   ===================================================================== */
+function renderMehr(){
+  const l=letzteJeFrage();
+  const kacheln = [
+    {v:'konto', t:'Konto', p:'Name, Passwort, Fortschritt sichern und die Anleitung, wie der Trainer als App auf dem iPhone landet.',
+     z: esc(PROFIL.email)},
+  ];
+  if(istAdmin()) kacheln.push(
+    {v:'quellen', t:'Quellen', p:'Grundlage der täglich erzeugten Fragen, geordnet nach Prüfungsteil, mit Herausgeber und Einstufung.', z:'nur für Administratoren'},
+    {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'});
+
+  $('#mehrgitter').innerHTML = kacheln.map(k=>
+    `<button class="kachel" data-v="${k.v}"><h3>${esc(k.t)}</h3><p>${esc(k.p)}</p><span class="zahl">${k.z}</span></button>`).join('')
+    + `<div class="kachel" style="cursor:default">
+         <h3>Bestand</h3>
+         <p>${ALLES.length} Fragen in ${[...new Set(ALLES.map(q=>q.block))].length} Abschnitten ·
+            ${Object.keys(l).length} davon bearbeitet · ${MARKIERT.size} markiert.</p>
+         <span class="zahl">Prüfung am 1. September 2026</span>
+       </div>`;
+  $$('#mehrgitter [data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
 }
 
 /* =====================================================================

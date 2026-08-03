@@ -38,9 +38,18 @@ Nach den amtlichen Musteraufgaben (Stand 04.09.2025): **52 Aufgaben in
 Die 30 Minuten sind ein gemeinsames Budget; die Einteilung übernimmt die
 prüfende Person selbst – wie im Original.
 
-### Auswertung
-Dashboard mit Trefferquote je Kategorie, Verlauf über die Tage, schwächsten
-Themenfeldern und Fehlerarchiv. Jede Frage hat eine Erläuterung.
+### Aufbau der Anwendung
+Vier Bereiche, auf dem Telefon und am Rechner gleich:
+
+| Bereich | Inhalt |
+|---|---|
+| Übersicht | Countdown, die Aufgaben des Tages, Trefferquote je Kategorie, Verlauf, schwächste Themenfelder |
+| Trainer | frei zusammengestellter Durchgang: Bereiche, Anzahl, Zeitdruck, „nur neue Fragen“, „Fehler wiederholen“, Markierungen, vollständige Prüfungssimulation |
+| Fragen | der gesamte Bestand zum Nachschlagen, gefiltert nach Stand (alle / falsch / nie gesehen / richtig / markiert), Prüfungsteil und Abschnitt; jede Auswahl lässt sich unmittelbar als Durchgang starten |
+| Mehr | Konto, Installation auf dem iPhone – für Administratoren zusätzlich Quellen und Nutzer |
+
+Jede Frage hat eine Erläuterung. Markierungen aus einem Durchgang bleiben
+erhalten und sind im Bereich „Fragen“ wieder auffindbar.
 
 ---
 
@@ -85,7 +94,7 @@ keine Bestätigungsmails verschickt.
 Adressleiste. Die Fragen werden zwischengespeichert und stehen auch ohne Netz
 zur Verfügung; Ergebnisse werden nachgereicht, sobald wieder Netz da ist.
 
-**Als Administrator.** Zwei zusätzliche Bereiche:
+**Als Administrator.** Unter *Mehr* erscheinen zwei zusätzliche Kacheln:
 
 - *Quellen* – Verzeichnis nach Sachgebieten, Umbenennen, Löschen, Hochladen
   neuer Dateien in den Cloudspeicher.
