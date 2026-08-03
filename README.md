@@ -75,7 +75,10 @@ Prüfungsunterlagen und kein Fragenbestand.
 | `frage` | Fachtestfragen |
 | `fr_text`, `fr_frage` | Lesetexte und Aufgaben des Sprachtests |
 | `durchgang`, `antwort` | Fortschritt je Konto |
-| `quellenkategorie`, `quelle` | Quellenverzeichnis, Dateien im Cloudspeicher `quellen` |
+| `quellenkategorie`, `quelle` | Quellenverzeichnis: 261 Dokumente mit Herausgeber, Lizenz, Jahr und Einstufung |
+| `quelltext` | 41 672 Seiten Volltext der Quellen, seitenweise, mit Volltextsuche je Sprache |
+| `fr_material` | 5 321 Einträge für den Sprachtest: Presseartikel, Wortschatz, Wendungen, Terminologie, Konjugationen, Grammatikkatalog |
+| `lehrplan` | 167 Themenfelder mit Gewicht; `lehrplan_stand` zeigt den Rückstand |
 
 Der Zeilenschutz erlaubt jedem Konto ausschließlich die eigenen Ergebnisse.
 Fragen sind für aktive Konten lesbar, Quellen und Konten nur für
@@ -110,6 +113,13 @@ Eine geplante Aufgabe erzeugt jeden Morgen um 6 Uhr einen neuen Abschnitt
 Sprachtestsatz (3 Artikel, 8 + 22 + 22 Aufgaben). Sie schreibt unmittelbar in
 die Datenbank; der neue Abschnitt erscheint in der Anwendung unter „Heute“.
 Der Wortlaut der Aufgabe steht in `Anleitung_Tagesaufgabe.md`.
+
+Welche Themenfelder drankommen, bestimmt der Lehrplan: die Aufgabe nimmt die
+Felder mit dem größten Rückstand, sodass alle 167 Felder innerhalb von rund
+30 Tagen wenigstens einmal abgedeckt sind. Jede Frage wird an einer Textstelle
+aus `quelltext` belegt; Herausgeber und Titel stehen in der Erläuterung. Für
+den Sprachtest liefert `fr_material` echte Presseartikel im Prüfungsumfang,
+Korpusbelege für den Wortschatz und einen Grammatikkatalog mit zehn Kapiteln.
 
 ---
 

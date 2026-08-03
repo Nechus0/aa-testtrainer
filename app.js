@@ -474,7 +474,7 @@ function schaleBauen(){
       <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Quellen</h1>
-        <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst.</p>
+        <p class="lead">Grundlage für die täglich neu erzeugten Fragen – geordnet nach den drei Fachtests, dem Sprachtest und dem Verfahren selbst. Der Volltext liegt in der Datenbank: die Tagesaufgabe sucht darin nach Belegstellen und schreibt Herausgeber und Titel in die Erläuterung jeder Frage.</p>
       </div></div>
     </div>
     <div class="wrap">
@@ -484,8 +484,12 @@ function schaleBauen(){
         <label class="fld" style="flex:1;min-width:160px">Prüfungsbezug<select id="qu-stufe">
           <option value="">alle</option><option value="kern">Kernquellen</option>
           <option value="ergaenzend">Ergänzungen</option><option value="abseits">ohne Bezug</option></select></label>
-        <label class="fld" style="flex:1;min-width:130px">Datei<select id="qu-datei">
-          <option value="">alle</option><option value="ja">hochgeladen</option><option value="nein">fehlt</option></select></label>
+        <label class="fld" style="flex:1;min-width:150px">Vorliegen<select id="qu-datei">
+          <option value="">alle</option>
+          <option value="text">Volltext gelesen</option>
+          <option value="ohnetext">ohne Volltext</option>
+          <option value="ja">PDF im Speicher</option>
+          <option value="nein">ohne PDF</option></select></label>
         <button class="btn sm" id="qu-neu">Quelle hinzufügen</button>
       </div>
       <div id="qu-stat" class="small mute" style="margin-bottom:18px"></div>
@@ -1616,17 +1620,20 @@ const BEZUG = {
 function quellenZeile(q){
   const st = STUFE[q.einstufung] || STUFE.sonstige;
   const bz = q.relevanz || 'ergaenzend';
+  const SPR = {de:'deutsch', fr:'französisch', en:'englisch'};
   return `<div class="quelle${bz==='abseits'?' abseits':''}">
-    <span class="punkt ${q.vorhanden?'ja':'nein'}" title="${q.vorhanden?'Datei im Cloudspeicher':'Datei fehlt'}"></span>
+    <span class="punkt ${q.volltext?'ja':'nein'}" title="${q.volltext?'Volltext in der Datenbank – die Tagesaufgabe kann daraus zitieren':'Kein Volltext gelesen'}"></span>
     <span class="t">
       <b>${esc(q.titel)}</b>
       <span class="herkunft">
         <span class="stufe ${esc(q.einstufung||'sonstige')}" title="${esc(st.lang)}">${esc(st.kurz)}</span>
         <span class="geber">${esc(q.herausgeber||'Herkunft nicht vermerkt')}</span>
-        ${q.herkunft?`<span class="fund">${esc(q.herkunft)}</span>`:''}
-        ${bz!=='kern'?`<span class="bezug ${bz}" title="${esc(BEZUG[bz].lang)}">${esc(BEZUG[bz].kurz)}</span>`:''}
+        ${q.jahr?`<span class="fund">${esc(q.jahr)}</span>`:(q.herkunft?`<span class="fund">${esc(q.herkunft)}</span>`:'')}
+        ${bz==='abseits'?`<span class="bezug ${bz}" title="${esc(BEZUG[bz].lang)}">${esc(BEZUG[bz].kurz)}</span>`:''}
       </span>
-      <span class="datei">${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${q.vorhanden?'':' · Datei fehlt'}${
+      <span class="datei">${esc(q.dateiname)}${q.groesse?' · '+mb(q.groesse):''}${
+        q.volltext? ' · Volltext'+(q.textseiten?' '+q.textseiten+' Seiten':'')+(q.sprache&&q.sprache!=='de'?', '+SPR[q.sprache]:'') : ' · ohne Volltext'}${
+        q.vorhanden? ' · PDF im Speicher' : ''}${
         (bz==='abseits'&&q.bemerkung)?' · '+esc(q.bemerkung):''}</span>
     </span>
     <span class="akt">
@@ -1645,21 +1652,23 @@ function quellenListe(){
   const gefiltert = !!(s||k||d||e);
   const r=QU_ALLE.filter(q=>(!k||q.kategorie===k)
     && (!e||(q.relevanz||'ergaenzend')===e)
-    && (!d || (d==='ja'? q.vorhanden : !q.vorhanden))
+    && (!d || (d==='ja'? q.vorhanden : d==='nein'? !q.vorhanden
+             : d==='text'? q.volltext : !q.volltext))
     && (!s || (q.titel+' '+q.dateiname+' '+(q.herausgeber||'')+' '+(q.herkunft||'')).toLowerCase().includes(s)));
 
   const da=QU_ALLE.filter(q=>q.vorhanden).length;
-  const gb=QU_ALLE.reduce((a,q)=>a+(q.groesse||0),0);
+  const gb=QU_ALLE.filter(q=>q.vorhanden).reduce((a,q)=>a+(q.groesse||0),0);
   const ohne=QU_ALLE.filter(q=>q.relevanz==='abseits');
   const ohneMb=ohne.reduce((a,q)=>a+(q.groesse||0),0);
   const zaehl = Object.entries(QU_ALLE.reduce((m,q)=>{ m[q.einstufung||'sonstige']=(m[q.einstufung||'sonstige']||0)+1; return m; },{}));
+  const mitText = QU_ALLE.filter(q=>q.volltext);
+  const textseiten = mitText.reduce((a,q)=>a+(q.textseiten||0),0);
   $('#qu-stat').innerHTML =
     `<b style="color:var(--ink)">${QU_ALLE.length} Quellen</b> für ${QU_KATS.length} Prüfungsteile · `
-    + `${QU_ALLE.filter(q=>q.relevanz==='kern').length} Kernquellen`
-    + (ohne.length? `, ${ohne.length} ohne Prüfungsbezug`:'')
-    + ` · ${da} im Cloudspeicher`
-    + (QU_ALLE.length-da? `, <b style="color:var(--gold)">${QU_ALLE.length-da} ohne Datei</b>`:'')
-    + ` · zusammen ${mb(gb)}`
+    + `<b style="color:var(--ink)">${mitText.length}</b> davon als Volltext gelesen`
+    + (textseiten? ` (${textseiten.toLocaleString('de-DE')} Seiten)`:'')
+    + (QU_ALLE.length-mitText.length? `, <b style="color:var(--gold)">${QU_ALLE.length-mitText.length} ohne Volltext</b>`:'')
+    + ` · ${da} liegen zusätzlich als PDF im Cloudspeicher (${mb(gb)})`
     + `<div class="herkunft" style="margin-top:12px">${zaehl
         .sort((a,b)=>b[1]-a[1])
         .map(([s2,n])=>`<span class="stufe ${esc(s2)}" title="${esc((STUFE[s2]||STUFE.sonstige).lang)}">${esc((STUFE[s2]||STUFE.sonstige).kurz)} ${n}</span>`).join('')}</div>`
@@ -1672,16 +1681,15 @@ function quellenListe(){
 
   const gruppen = QU_KATS.map(kat=>({kat, items:r.filter(q=>q.kategorie===kat.schluessel)})).filter(g=>g.items.length);
   $('#qu-liste').innerHTML = gruppen.length ? gruppen.map(g=>{
-      const fehlt = g.items.filter(q=>!q.vorhanden).length;
-      const kern  = g.items.filter(q=>q.relevanz==='kern').length;
-      const raus  = g.items.filter(q=>q.relevanz==='abseits').length;
-      const auf = gefiltert || QU_OFFEN.has(g.kat.schluessel);
+      const fehlt = g.items.filter(q=>!q.volltext).length;
+      const seiten = g.items.reduce((a,q)=>a+(q.textseiten||0),0);
+      const auf = (gefiltert && r.length<=60) || QU_OFFEN.has(g.kat.schluessel);
       return `<details class="gebiet" data-gebiet="${esc(g.kat.schluessel)}"${auf?' open':''}>
         <summary>
           <span class="pfeil">▶</span>
           <span class="name">${esc(g.kat.bezeichnung)}</span>
-          ${fehlt?`<span class="fehlt">${fehlt} ohne Datei</span>`:''}
-          <span class="zahl">${kern} Kern${raus?' · '+raus+' ohne Bezug':''} · ${g.items.length} gesamt</span>
+          ${fehlt?`<span class="fehlt">${fehlt} ohne Volltext</span>`:''}
+          <span class="zahl">${g.items.length} Quellen${seiten?' · '+seiten.toLocaleString('de-DE')+' Seiten':''}</span>
         </summary>
         <div>${g.items.map(quellenZeile).join('')}</div>
       </details>`;

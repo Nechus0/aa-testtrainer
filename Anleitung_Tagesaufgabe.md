@@ -15,6 +15,37 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 
 ---
 
+## Woraus die Fragen entstehen
+
+Seit dem 3. August 2026 liegt die Quellensammlung **als Volltext in der
+Datenbank**, nicht mehr nur als PDF im Cloudspeicher:
+
+| Tabelle | Inhalt |
+|---|---|
+| `quelle` | 261 Dokumente mit Herausgeber, Lizenz, Jahr, Einstufung, Sprache |
+| `quelltext` | 41 672 Seiten Volltext, seitenweise, mit Volltextsuche je Sprache |
+| `fr_material` | 5 300 Einträge für den Sprachtest: Presseartikel im Prüfungsformat, thematischer und korpusbasierter Wortschatz, feste Wendungen, amtliche Terminologie, Konjugationen, Grammatikkatalog |
+| `lehrplan` | 167 Themenfelder mit Gewicht; `lehrplan_stand` zeigt den Rückstand |
+
+Damit muss die Tagesaufgabe nichts mehr erfinden: **jede Frage wird an einer
+Textstelle belegt.** Die Suche liefert die Belegstelle mit:
+
+```sql
+-- Stichworte, Kategorie (oder null), Trefferzahl, Sprache der Quelle
+select * from public.quelle_suchen('Bundesverfassungsgericht Organstreit', 'recht', 8, 'de');
+select * from public.quelle_suchen('relations diplomatiques immunité',      null,    8, 'fr');
+select * from public.quelle_suchen('monetary policy inflation targeting',   null,    8, 'en');
+```
+
+Rückgabe: Quelle, Titel, Herausgeber, Jahr, Seite, Auszug mit hervorgehobenen
+Treffern, Rang. Ohne Kategorie sucht die Funktion über den gesamten Bestand.
+Der Bestand ist dreisprachig: 178 deutsche, 72 englische und 11 französische
+Titel – die Sprache steht in `quelle.sprache`. Deutsche Quellen zuerst; die
+englischen Lehrbücher (OpenStax, Palgrave, Routledge) taugen für Theorie und
+Systematik, die französischen für den Sprachtest.
+
+---
+
 ## Einrichtung in einem anderen Konto
 
 1. Den MCP-Server **Supabase** mit dem Projekt `xuybdwxbyfdlvydspfgq`
@@ -37,27 +68,33 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > Nutze die Supabase-Werkzeuge (MCP-Server „Supabase“), Projekt-ID:
 > `xuybdwxbyfdlvydspfgq`. Schreibvorgänge über `execute_sql`. Für aktuelle
 > Sachverhalte nutze die Websuche. Eine Verbindung zum Rechner des Nutzers ist
-> nicht nötig und darf nicht vorausgesetzt werden.
+> nicht nötig und darf nicht vorausgesetzt werden. Steht der MCP-Server nicht
+> zur Verfügung, brich ab und melde das – schreibe nichts auf anderem Weg.
 >
 > ### Schritt 1 – Stand ermitteln
 > ```sql
-> select max(cast(substring(block from 5) as int)) as letzter_tag
->   from frage where block like 'Tag %';
-> select max(cast(substring(block from 5) as int)) as letzter_tag_fr
->   from fr_frage where block like 'Tag %';
+> select greatest(
+>   coalesce((select max(cast(substring(block from 5) as int)) from frage    where block like 'Tag %'), 0),
+>   coalesce((select max(cast(substring(block from 5) as int)) from fr_frage where block like 'Tag %'), 0)
+> ) + 1 as neuer_tag;
 > ```
-> Der neue Abschnitt heißt `Tag N`, wobei N = höchster vorhandener Tag + 1
-> (über beide Abfragen hinweg dieselbe Zahl verwenden). Existiert `Tag N`
-> schon, ist der Lauf für heute erledigt – dann nichts schreiben und das
-> melden.
+> Der neue Abschnitt heißt `Tag N` mit dieser Zahl. Existiert `Tag N` schon,
+> ist der Lauf für heute erledigt – dann nichts schreiben und das melden.
 >
-> Lies außerdem, worüber schon gefragt wurde, damit nichts doppelt kommt:
+> ### Schritt 2 – Themenfelder wählen
+> Der Lehrplan bestimmt, was drankommt. Er hat 167 Felder; in 30 Tagen soll
+> jedes wenigstens einmal vorkommen, wichtige Felder mehrfach.
 > ```sql
-> select kategorie, thema, left(frage, 90) from frage order by kategorie, thema;
-> select teil, thema, left(frage, 70) from fr_frage order by teil, thema;
+> select kategorie, oberfeld, unterfeld, thema, gewicht, fragen, soll, rueckstand
+>   from lehrplan_stand
+>  order by kategorie, rueckstand desc, random()
+>  limit 60;
 > ```
+> Nimm je Kategorie die 8 bis 12 Felder mit dem größten Rückstand und verteile
+> die 25 Fragen darauf. `thema` muss **wortgleich** aus dem Lehrplan
+> übernommen werden, sonst zählt die Abdeckung nicht.
 >
-> ### Schritt 2 – Maßstab nehmen (wichtig, nicht überspringen)
+> ### Schritt 3 – Maßstab nehmen (wichtig, nicht überspringen)
 > In der Tabelle `frage` stehen unter den Abschnitten `Original 2019` und
 > `Original 2023` die **150 tatsächlichen Prüfungsfragen des Auswärtigen
 > Amts**. Sie sind der verbindliche Maßstab für Zuschnitt, Frageform, Länge,
@@ -79,12 +116,24 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > Gleiche Fragelänge, gleicher Ton, gleiche Art von Ablenkern, gleiche Mischung
 > aus Faktenwissen und Verständnis. Keine neuen Aufgabenformate erfinden.
 >
-> Ergänzend liegen im Cloudspeicher (Eimer `quellen`) 111 fachliche Quellen –
-> Bundeszentrale für politische Bildung, Deutscher Bundestag, Auswärtiges Amt,
-> Deutsche Bundesbank, amtliche Vertragstexte. Ihr Verzeichnis steht in der
-> Tabelle `quelle` mit den Spalten `herausgeber` und `einstufung`.
+> ### Schritt 4 – Belege holen
+> Zu **jedem** gewählten Themenfeld zuerst die Quellenlage lesen:
+> ```sql
+> select * from public.quelle_suchen('<Stichworte des Themenfelds>', '<kategorie>', 8, 'de');
+> ```
+> Die Rückgabe enthält Titel, Herausgeber, Seite und einen Auszug. Formuliere
+> die Frage aus dieser Textstelle heraus; trage Herausgeber und Titel in die
+> Erläuterung ein („Grundlage: Bundeszentrale für politische Bildung, …“).
+> Findet die Suche nichts, wähle andere Stichworte oder ein anderes Feld –
+> aber erfinde keine Belege. Für tagesaktuelle Sachverhalte (Amtsträger,
+> Zahlen, laufende Verfahren) gilt weiterhin die Websuche.
 >
-> ### Schritt 3 – Fachtests erzeugen (75 Fragen)
+> Prüfe außerdem, worüber schon gefragt wurde, damit nichts doppelt kommt:
+> ```sql
+> select kategorie, thema, left(frage, 90) from frage order by kategorie, thema;
+> ```
+>
+> ### Schritt 5 – Fachtests erzeugen (75 Fragen)
 > Genau 25 Fragen je Kategorie, exakt im Zuschnitt der veröffentlichten
 > AA-Fachtests:
 >
@@ -104,15 +153,13 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 >
 > * Vier Antwortmöglichkeiten, genau eine ist richtig; die drei falschen müssen
 >   plausibel sein.
-> * Sachlich zweifelsfrei richtig und auf dem Stand von heute. Prüfe Zahlen,
->   Amtsträger und Rechtslage per Websuche, wenn sie sich geändert haben
->   könnten.
+> * Sachlich zweifelsfrei richtig und durch eine Textstelle aus `quelltext`
+>   oder durch die Websuche gedeckt.
 > * Frageniveau wie im Original: in etwa 20 Sekunden lösbar, aber nur mit
 >   echtem Fachwissen.
 > * Eine `erlaeuterung` von zwei bis fünf Sätzen: warum die richtige Antwort
->   stimmt und woran die nächstliegende falsche scheitert.
-> * `thema` in der Form „Oberfeld – Unterfeld“, zum Beispiel „Europarecht –
->   Rechtsetzung“.
+>   stimmt, woran die nächstliegende falsche scheitert, und woher es stammt.
+> * `thema` wortgleich aus dem Lehrplan, Form „Oberfeld – Unterfeld“.
 > * Kein Thema, das schon eine bestehende Frage abdeckt.
 > * `schwierigkeit` 1 (leicht), 2 (mittel) oder 3 (schwer); ungefähr 5 / 15 / 5
 >   je Kategorie.
@@ -121,30 +168,50 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > bis `W-TNN-25`, wobei NN die zweistellige Tagesnummer ist
 > (Tag 7 → `R-T07-01`, Tag 12 → `R-T12-01`).
 >
-> ### Schritt 4 – Sprachtest Französisch erzeugen (52 Aufgaben)
+> ### Schritt 6 – Sprachtest Französisch erzeugen (52 Aufgaben)
 > Streng nach den amtlichen Musteraufgaben (Stand 04.09.2025): 52 Aufgaben,
 > 30 Minuten, 60 Punkte, bestanden ab 30. Niveau B2.
 >
+> Das Material dafür liegt in `fr_material`:
+> ```sql
+> -- Presseartikel im richtigen Umfang, noch nicht verwendet
+> select schluessel, daten from fr_material
+>  where art in ('presse','lesetext')
+>    and (daten->>'mots')::int between 70 and 190
+>  order by random() limit 12;
+> -- Wortschatz, Wendungen, Terminologie
+> select schluessel, daten from fr_material where art='thema'        order by random() limit 40;
+> select schluessel, daten from fr_material where art='locution'     order by random() limit 25;
+> select schluessel, daten from fr_material where art='terminologie' order by random() limit 25;
+> -- Grammatikkatalog: zehn Kapitel mit Regeln, Paradigmen und Korpusbelegen
+> select schluessel, daten->'regles', daten->'paradigmes' from fr_material where art='grammatik';
+> ```
+>
 > 1. **Textverständnis** – genau 3 Zeitungsartikel auf Französisch, je 70 bis
->    180 Wörter, journalistischer Stil, europäische oder internationale Themen.
->    Dazu genau 8 Fragen, verteilt 3 / 3 / 2. Jede Frage 2 Punkte.
+>    180 Wörter. Nimm sie aus `fr_material` (`art in ('presse','lesetext')`)
+>    und kürze sie auf das Prüfungsmaß, statt Texte zu erfinden. Dazu genau
+>    8 Fragen, verteilt 3 / 3 / 2, jede 2 Punkte.
 >    Artikelkennungen `FT-TNN-01` bis `FT-TNN-03`, Fragen `FV-TNN-01-01`,
 >    `FV-TNN-01-02` … Quellenangabe neutral halten, zum Beispiel „D'après la
->    presse européenne“ – keine echten Zeitungen erfinden.
+>    presse européenne“.
 > 2. **Wortschatz und Idiomatik** – genau 22 Aufgaben, `FW-TNN-01` bis
->    `FW-TNN-22`. Lückensätze mit vier Wortoptionen; diplomatischer,
->    wirtschaftlicher und allgemeinsprachlicher Wortschatz, feste Wendungen,
->    Verbrektion, falsche Freunde.
+>    `FW-TNN-22`. Lückensätze mit vier Wortoptionen, gebildet aus `thema`,
+>    `locution` und `terminologie`; diplomatischer, wirtschaftlicher und
+>    allgemeinsprachlicher Wortschatz, feste Wendungen, Verbrektion, falsche
+>    Freunde. Die Beispielsätze im Material sind echte Korpusbelege – nutze
+>    sie als Vorlage für den Lückensatz.
 > 3. **Grammatik und Zeitformen** – genau 22 Aufgaben, `FG-TNN-01` bis
->    `FG-TNN-22`. Zeiten und Modi (subjonctif, conditionnel, concordance des
->    temps), Pronomen, Präpositionen, Relativsätze, Passiv, indirekte Rede.
+>    `FG-TNN-22`, verteilt über die zehn Kapitel aus `art='grammatik'`:
+>    subjonctif, conditionnel, phrases hypothétiques, connecteurs, temps de
+>    l'indicatif, pronoms, voix passive, discours indirect, participes,
+>    accord du participe passé.
 >
 > Die `erlaeuterung` steht auf Deutsch und erklärt die Regel sowie den Fehler
 > in der nächstliegenden falschen Option. `thema` ebenfalls auf Deutsch, Form
 > „Oberfeld – Unterfeld“. Achte auf sprachliche Korrektheit: Akzente,
 > Elisionen, Typografie (« … » mit schmalem Leerraum, Apostroph ’).
 >
-> ### Schritt 5 – Schreiben
+> ### Schritt 7 – Schreiben
 > Prüfe vor dem Schreiben selbst: 25/25/25 Fachfragen, 3 Artikel, 8/22/22
 > Französischaufgaben, alle Kennungen neu, alle `optionen` mit genau vier
 > Einträgen, alle `loesung` zwischen 0 und 3. Stimmt etwas nicht, korrigiere es
@@ -172,15 +239,17 @@ vollständig in der Cloud und spricht das Supabase-Projekt an.
 > (`d''après`). `stand` ist das heutige Datum. `text_id` ist bei Wortschatz und
 > Grammatik `null`.
 >
-> ### Schritt 6 – Nachkontrolle
+> ### Schritt 8 – Nachkontrolle
 > ```sql
 > select block, kategorie, count(*) from frage where block = 'Tag N' group by 1,2;
 > select block, teil, count(*) from fr_frage where block = 'Tag N' group by 1,2;
+> select count(*) from lehrplan_stand where fragen = 0;
 > ```
 > Erwartet: 25 je Kategorie sowie 8 / 22 / 22. Fehlt etwas, ergänze es. Melde
-> zum Schluss Tagesnummer, Anzahl und die abgedeckten Themenfelder. Der Nutzer
-> sieht den neuen Abschnitt sofort unter
-> <https://nechus0.github.io/aa-testtrainer/> im Bereich „Heute“.
+> zum Schluss Tagesnummer, Anzahl, die abgedeckten Themenfelder und wie viele
+> Felder des Lehrplans noch ohne Frage sind. Der Nutzer sieht den neuen
+> Abschnitt sofort unter <https://nechus0.github.io/aa-testtrainer/> im
+> Bereich „Heute“.
 
 ---
 
