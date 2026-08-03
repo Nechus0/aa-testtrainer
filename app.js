@@ -806,18 +806,11 @@ function weak(){
       <span class="qt" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %</span>
       <span class="ct fehler">${v.n-v.ok}</span></div>`;
   }).join('')
-    + `<div class="morerow" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-        <button class="link" id="weak-uebe">Diese Themen gezielt üben</button>
-        ${alle.length>5?`<button class="link" id="weak-more" style="margin-left:auto">${
-          WEAK_ALLE?'Weniger anzeigen':'Alle '+alle.length+' Themenfelder anzeigen'}</button>`:''}
-      </div>`;
+    + (alle.length>5
+        ? `<div class="morerow"><button class="link" id="weak-more">${
+            WEAK_ALLE?'Weniger anzeigen':'Alle '+alle.length+' Themenfelder anzeigen'}</button></div>`
+        : '');
   const b=$('#weak-more'); if(b) b.onclick=()=>{ WEAK_ALLE=!WEAK_ALLE; weak(); };
-  $('#weak-uebe').onclick=()=>{
-    TR.auswahl='schwach'; TR.zeit=false;
-    TR.bereiche=new Set(alle.slice(0,8).map(v=>v.kat==='franzoesisch'? null : v.kat).filter(Boolean));
-    if(!TR.bereiche.size) TR.bereiche=new Set(['textverstaendnis','wortschatz','grammatik']);
-    go('train');
-  };
 }
 
 /* Letzte Durchgänge als Liste, nicht als Tabelle: vier Spalten brechen auf dem
@@ -1856,7 +1849,7 @@ function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert
       </div>
     </details>`;
   }).join('')
-  + (kompakt ? `<p class="hint" style="margin:12px 2px 0">${fragen.length} Fragen in ${gruppen.length} Prüfungsteilen. Öffne einen Prüfungsteil, um die Fragen mit Lösung und Erläuterung nachzulesen.</p>` : '');
+  + (kompakt ? `<p class="hint" style="margin:12px 2px 0">${fragen.length} Fragen in ${gruppen.length} Prüfungsteilen. Einen öffnen, um nachzulesen.</p>` : '');
   $$(ziel+' .gebiet').forEach(d=>d.ontoggle=()=>{
     if(d.open) offenSet.add(d.dataset.gruppe); else offenSet.delete(d.dataset.gruppe);
   });
@@ -2096,9 +2089,8 @@ function aufnahmeZeichnen(laeuft){
   const kasten = d.querySelector('.card');
   kasten.innerHTML = `
     <h2 style="margin-bottom:6px">Quellen aufnehmen</h2>
-    <p class="small mute" style="margin-bottom:18px">Wähle eine oder mehrere Dateien (PDF, TXT, MD). Der Text
-      wird hier im Browser gewonnen und in die Datenbank geschrieben – die Datei selbst wird nicht gespeichert.
-      Die tägliche Fragenerstellung sucht darin nach Belegstellen.</p>
+    <p class="small mute" style="margin-bottom:18px">PDF, TXT oder MD. Der Text wird hier gewonnen und
+      gespeichert, die Datei selbst nicht.</p>
     <div class="auf-wahl">
       <input type="file" id="auf-datei" multiple accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" hidden>
       <button class="btn ghost" id="auf-waehlen">Dateien wählen</button>
@@ -2601,9 +2593,8 @@ function renderTagesstand(){
     <div class="sec">
       <div class="sec-h"><h2>Wie der Lauf arbeitet</h2></div>
       <div class="card pad">
-        <p class="small" style="margin:0">Jeden Morgen um 6 Uhr Berliner Zeit kommt ein neuer Abschnitt
-          <b>Tag N</b>: 75 Fachtestfragen und ein vollständiger Sprachtestsatz. Welche Themenfelder
-          drankommen, bestimmt der Lehrplan. Bestehende Abschnitte bleiben unverändert.</p>
+        <p class="small" style="margin:0">Jeden Morgen um 6 Uhr kommt <b>Tag N</b>: 75 Fachtestfragen und ein
+          Sprachtestsatz. Welche Themenfelder drankommen, bestimmt der Lehrplan.</p>
       </div>
     </div>`;
 
@@ -2623,7 +2614,7 @@ function renderMehr(){
      z: esc(PROFIL.email)},
   ];
   kacheln.push({v:'quellen', t:'Quellen',
-    p:'Grundlage der täglich erzeugten Fragen, geordnet nach Prüfungsteil, mit Herausgeber und Einstufung. Du kannst eigene Dokumente aufnehmen und Quellen entfernen.',
+    p:'Grundlage der täglich erzeugten Fragen. Eigene Dokumente kannst du aufnehmen und entfernen.',
     z: QU_ALLE.length ? QU_ALLE.length+' Dokumente' : 'aufnehmen und pflegen'});
   if(istAdmin()) kacheln.push(
     {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'});
@@ -2663,14 +2654,13 @@ function renderKonto(){
         ? '<div class="hinweis gut"><b>Erledigt.</b> Der Testtrainer läuft bereits als installierte App.</div>'
         : `<div class="card pad">
             <p style="font-size:17px;margin-bottom:6px"><b>Der Testtrainer lässt sich wie eine App auf dem Telefon ablegen.</b></p>
-            <p class="small mute" style="margin-bottom:22px">Kein App Store, keine Installation, keine Kosten – der Browser legt lediglich ein Symbol auf den Home-Bildschirm.</p>
+            <p class="small mute" style="margin-bottom:22px">Kein App Store – der Browser legt nur ein Symbol an.</p>
             <ol style="margin:0;padding-left:22px;display:flex;flex-direction:column;gap:16px">
               ${schritte.map(([t,e])=>`<li style="padding-left:4px">
                  <div style="font-size:16px;color:var(--ink)">${t}</div>
                  <div class="small mute" style="margin-top:4px">${e}</div></li>`).join('')}
             </ol>
-            <div class="hinweis" style="margin:24px 0 0">Die Anmeldung bleibt erhalten. Fragen werden zwischengespeichert und
-              stehen auch ohne Netz zur Verfügung; Ergebnisse werden nachgereicht, sobald wieder Netz da ist.</div>
+            <div class="hinweis" style="margin:24px 0 0">Läuft auch ohne Netz. Ergebnisse werden nachgereicht.</div>
             <div class="small mute" style="margin-top:18px">Adresse zum Weitergeben:<br>
               <span style="font-family:var(--mono);font-size:13px;color:var(--ink);overflow-wrap:anywhere">${esc(location.origin+location.pathname)}</span>
               <button class="link" id="k-adresse" style="font-size:13px;margin-left:10px">kopieren</button></div>
@@ -2834,7 +2824,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-04-4';
+const FASSUNG = 'tt-2026-08-04-5';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
