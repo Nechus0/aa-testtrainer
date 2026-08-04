@@ -365,10 +365,10 @@ function navBauen(){
 function schaleBauen(){
   $('#v-dash').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow">Auswahlverfahren<span class="kopfrechts" id="kopf-serie"></span></div>
+      <div class="eyebrow">Auswahlverfahren</div>
       <div class="row">
         <div style="flex:1;min-width:280px">
-          <h1>Übersicht</h1>
+          <div class="titelzeile"><h1>Übersicht</h1><span class="kopfrechts" id="kopf-serie"></span></div>
           <p class="lead" id="dash-lead">Dein Stand in den drei Fachtests des schriftlichen Auswahlverfahrens.</p>
         </div>
       </div>
@@ -399,7 +399,7 @@ function schaleBauen(){
         <div class="grid g2">
           <div>
             <div class="sec-h"><h2>Schwächste Themenfelder</h2><span class="note">nach Fehlern</span></div>
-            <div class="card" id="weak"></div>
+            <div class="card liste" id="weak"></div>
           </div>
           <div>
             <div class="sec-h"><h2>Letzte Durchgänge</h2></div>
@@ -413,7 +413,7 @@ function schaleBauen(){
     <div class="wrap page">
       <div class="eyebrow">Üben</div>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Trainer</h1>
+        <div class="titelzeile"><h1>Trainer</h1></div>
         <p class="lead">Selbst zusammenstellen oder einen vorgegebenen Test im Originalformat starten.</p>
       </div></div>
     </div>
@@ -441,7 +441,7 @@ function schaleBauen(){
     <div class="wrap page">
       <div class="eyebrow">Bestand</div>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Fragen</h1>
+        <div class="titelzeile"><h1>Fragen</h1></div>
         <p class="lead">Alle Fragen zum Nachschlagen – und der Lehrplan dahinter.</p>
       </div></div>
     </div>
@@ -452,11 +452,12 @@ function schaleBauen(){
       </div>
 
       <div id="q-pane-fragen">
-        <div class="statusfilter" id="q-status"></div>
         <div class="suchzeile">
+          <span class="such-lupe" aria-hidden="true"></span>
           <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …">
-          <button class="btn ghost" id="q-filter-auf" aria-expanded="false">Filter</button>
+          <button id="q-filter-auf" class="such-filter" aria-expanded="false" aria-label="Filter"><span aria-hidden="true"></span></button>
         </div>
+        <div class="statusfilter" id="q-status"></div>
         <div class="zahlzeile" id="q-zahl"></div>
         <div class="filterbox" id="q-filter" hidden>
           <label class="fld">Prüfungsteil<select id="q-kat"></select></label>
@@ -474,7 +475,7 @@ function schaleBauen(){
     <div class="wrap page">
       <div class="eyebrow">Konto und Verwaltung</div>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Mehr</h1>
+        <div class="titelzeile"><h1>Mehr</h1></div>
         <p class="lead">Konto, Quellen und Fortschritt.</p>
       </div></div>
     </div>
@@ -482,9 +483,9 @@ function schaleBauen(){
 
   $('#v-tagesstand').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
+      <button class="seiten-zurueck" data-zurueck="1"><span class="zp"></span>Mehr</button>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Tägliche Fragen</h1>
+        <div class="titelzeile"><h1>Tägliche Fragen</h1></div>
         <p class="lead">Wann der letzte Abschnitt kam und wann der nächste kommt.</p>
       </div></div>
     </div>
@@ -492,9 +493,9 @@ function schaleBauen(){
 
   $('#v-quellen').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
+      <button class="seiten-zurueck" data-zurueck="1"><span class="zp"></span>Mehr</button>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Quellen</h1>
+        <div class="titelzeile"><h1>Quellen</h1></div>
         <p class="lead">Grundlage der täglich erzeugten Fragen. Jeder Zugang kann Dokumente aufnehmen und entfernen – der Bestand ist gemeinsam.</p>
       </div></div>
     </div>
@@ -518,9 +519,9 @@ function schaleBauen(){
 
   $('#v-nutzer').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
+      <button class="seiten-zurueck" data-zurueck="1"><span class="zp"></span>Mehr</button>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Nutzer</h1>
+        <div class="titelzeile"><h1>Nutzer</h1></div>
         <p class="lead">Konten, Rollen und Einladungslinks.</p>
       </div></div>
     </div>
@@ -549,9 +550,9 @@ function schaleBauen(){
 
   $('#v-konto').innerHTML = `
     <div class="wrap page">
-      <div class="eyebrow"><button class="link" data-zurueck="1" style="font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;color:var(--muted-2);text-decoration:none">← Mehr</button></div>
+      <button class="seiten-zurueck" data-zurueck="1"><span class="zp"></span>Mehr</button>
       <div class="row"><div style="flex:1;min-width:280px">
-        <h1>Konto</h1>
+        <div class="titelzeile"><h1>Konto</h1></div>
         <p class="lead">Zugang, Fortschritt und Installation auf dem Telefon.</p>
       </div></div>
     </div>
@@ -652,11 +653,11 @@ function renderDash(){
       <span class="pt"></span>
       <span class="mitte">
         <span class="nm">${esc(c.name)}</span>
-        <span class="sub"><b class="tnum">${c.gesehen}</b> / ${c.pool} bearbeitet · <b class="tnum">${c.offen}</b> offen${
+        <span class="sub"><b class="tnum">${c.gesehen}</b> von ${c.pool} bearbeitet${
           c.trend!==null?` · <span style="color:${c.trend>0?'var(--ok)':c.trend<0?'var(--bad)':'var(--muted-2)'}">${c.trend>0?'▲':c.trend<0?'▼':'▬'} ${Math.abs(c.trend)} Pp.</span>`:''}</span>
-        <span class="bar"><i style="width:${c.quote||0}%"></i></span>
+        <span class="bar"><i style="width:${c.pool? Math.round(c.gesehen/c.pool*100):0}%"></i></span>
       </span>
-      <span class="wert tnum">${c.quote!==null? c.quote+' %' : '–'}</span>
+      <span class="wert tnum">${c.quote!==null? c.quote+' %<em>richtig</em>' : '–'}</span>
     </div>`).join('')}</div>`;
 
   const serie=$('#kopf-serie');
@@ -803,12 +804,14 @@ function weak(){
   const zeige = alle.slice(0,5);
   $('#weak').innerHTML = zeige.map(v=>{
     const q=pct(v.ok,v.n);
-    return `<div class="feld k-${v.kat}">
-      <span class="sq" title="${esc(katKurz(v.kat))}"></span>
-      <span class="nm" title="${esc(katKurz(v.kat))} · ${esc(v.feld)}">${esc(v.feld)}</span>
-      <span class="bar"><i style="width:${q}%"></i></span>
-      <span class="qt" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %</span>
-      <span class="ct fehler">${v.n-v.ok}</span></div>`;
+    return `<div class="zeile k-${v.kat}">
+      <span class="pt"></span>
+      <span class="mitte">
+        <span class="nm">${esc(v.feld)}</span>
+        <span class="sub">${v.n-v.ok} von ${v.n} falsch</span>
+        <span class="bar"><i style="width:${q}%"></i></span>
+      </span>
+      <span class="wert tnum" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %<em>richtig</em></span></div>`;
   }).join('');
 }
 
@@ -936,11 +939,7 @@ function renderTrainer(){
 
     <div class="tr-start">
       <button class="btn" id="tr-los" ${max?'':'disabled'}>Training starten</button>
-      <div class="tr-zusammen">${max
-        ? `${TR.anzahl} ${TR.anzahl===1?'Frage':'Fragen'} · ${esc(bereichWert)}
-           · ${esc(AUSWAHL.find(a=>a.id===TR.auswahl).name.toLowerCase())}
-           · ${TR.zeit? mmss(trZeit(TR.anzahl))+' Minuten' : 'ohne Zeitdruck'}`
-        : 'Keine Fragen für diese Zusammenstellung'}</div>
+      ${max ? '' : '<div class="tr-zusammen">Keine Fragen für diese Zusammenstellung</div>'}
     </div>`;
 
   $$('#trainer [data-auf]').forEach(b=>b.onclick=()=>trWahlOeffnen(b.dataset.auf));
@@ -967,15 +966,17 @@ function trWahlOeffnen(feld){
     titel = 'Bereiche';
     inhalt = `<div class="chips">
       ${['fach','fr'].map(g=>`<div class="chipgruppe">
-        <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
+        <div class="chipkopf">
+          <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
+          <button class="chip alle" data-gruppe="${g}">${
+            BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
+        </div>
         ${BEREICHE.filter(b=>b.gruppe===g).map(b=>{
           const qs=trBereichFragen(b.id);
           const off=qs.filter(q=>!l[q.id]).length;
           return `<button class="chip k-${b.kls}${TR.bereiche.has(b.id)?' an':''}" data-bereich="${b.id}">
             <i></i>${esc(b.kurz)}<em>${qs.length}${off?' · '+off+' offen':''}</em></button>`;
         }).join('')}
-        <button class="chip alle" data-gruppe="${g}">${
-          BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
       </div>`).join('')}</div>`;
   } else if(feld==='auswahl'){
     titel = 'Schwerpunkt';
@@ -1672,7 +1673,13 @@ function lpZeichnen(){
   } else if(!oberWahl){
     const t = baum[katWahl] || {felder:{}};
     kls = t.kls; stand = t;
-    zeilen = Object.keys(t.felder).map(o=>({schluessel:o, kls:t.kls, ...t.felder[o]}));
+    const ober = Object.keys(t.felder);
+    /* Hat ein Prüfungsteil nur ein Oberfeld gleichen Namens (Grammatik,
+       Wortschatz, Textverständnis), führte der Zwischenschritt auf eine
+       einzige Zeile mit demselben Titel. Diese Stufe wird übersprungen. */
+    zeilen = (ober.length===1 && ober[0]===t.name)
+      ? Object.values(t.felder[ober[0]].felder).map(f=>({schluessel:f.name, kls:t.kls, blatt:true, ...f}))
+      : ober.map(o=>({schluessel:o, kls:t.kls, ...t.felder[o]}));
     titel = t.name || katWahl;
   } else {
     const t = baum[katWahl] || {felder:{}};
@@ -1710,11 +1717,11 @@ function lpZeichnen(){
       ${zeige.map(z=>{
         const p = z.bestand ? Math.round(z.bearbeitet/z.bestand*100) : 0;
         const q = quote(z);
-        const zbelegt = (z.felder_n||0) - (z.felder_leer||0);
-        const sub = z.blatt
-          ? (z.bestand ? `${z.bearbeitet} von ${z.bestand} bearbeitet`
-                       : (z.imPlan===false ? 'nicht im Lehrplan' : 'noch keine Frage'))
-          : `${zbelegt} von ${z.felder_n} Feldern · ${z.bearbeitet} von ${z.bestand} bearbeitet`;
+        /* Eine Angabe je Zeile: die Feldabdeckung steht schon im Kopf der Ebene
+           und wird eine Ebene tiefer ohnehin Feld für Feld sichtbar. */
+        const sub = z.bestand
+          ? `${z.bearbeitet} von ${z.bestand} bearbeitet`
+          : (z.blatt && z.imPlan===false ? 'nicht im Lehrplan' : 'noch keine Frage');
         return `<${z.blatt?'div':'button'} class="zeile lpzeile k-${z.kls||kls||'recht'}"${
             z.blatt?'':` data-lp-tiefer="${esc(z.schluessel)}"`}>
           <span class="pt"></span>
@@ -1723,7 +1730,7 @@ function lpZeichnen(){
             <span class="sub">${sub}</span>
             <span class="bar"><i style="width:${p}%"></i></span>
           </span>
-          <span class="wert tnum">${q===null ? '–' : q+' %'}</span>
+          <span class="wert tnum">${q===null ? '–' : q+' %<em>richtig</em>'}</span>
           ${z.blatt? '' : '<span class="gp"></span>'}
         </${z.blatt?'div':'button'}>`;
       }).join('')}
@@ -1789,11 +1796,13 @@ function fragenListe(){
   const grund = ALLES.filter(q=>(!kat||q.kategorie===kat) && (!block||q.block===block)
     && (!suche || (q.frage+' '+q.optionen.join(' ')+' '+q.erlaeuterung+' '+(q.thema||'')).toLowerCase().includes(suche)));
 
-  /* Die Filtertaste zeigt an, ob überhaupt etwas eingeengt ist. */
+  /* Das Filterzeichen im Suchfeld färbt sich, sobald etwas eingeengt ist. */
+  const engText = [kat?katKurz(kat):null, block||null].filter(Boolean).join(', ');
   const fb=$('#q-filter-auf');
-  if(fb){ const eng = !!(kat||block);
-    fb.classList.toggle('an', eng);
-    fb.textContent = eng ? 'Filter · '+[kat?katKurz(kat):null, block||null].filter(Boolean).join(', ') : 'Filter'; }
+  if(fb){
+    fb.classList.toggle('an', !!engText);
+    fb.setAttribute('aria-label', engText ? 'Filter: '+engText : 'Filter');
+  }
 
   /* Der Statusfilter zählt immer über die bereits gesetzten Achsen. */
   $('#q-status').innerHTML = STATUS.map(st=>{
@@ -1805,8 +1814,12 @@ function fragenListe(){
   const st = STATUS.find(x=>x.id===Q.status) || STATUS[0];
   TREFFER = grund.filter(q=>st.test(q,l));
   const gefiltert = !!(suche||kat||block) || Q.status!=='alle';
-  $('#q-zahl').innerHTML = TREFFER.length
-    ? `<b>${TREFFER.length}</b> von ${ALLES.length} Fragen${Q.status==='alle'?'':' · '+esc(st.name.toLowerCase())}`
+  /* Ohne Einengung stünde dort „540 von 540 Fragen“ – eine Zeile ohne Aussage. */
+  const zahl=$('#q-zahl');
+  zahl.hidden = !gefiltert;
+  zahl.innerHTML = TREFFER.length
+    ? `<b>${TREFFER.length}</b> von ${ALLES.length} Fragen${Q.status==='alle'?'':' · '+esc(st.name.toLowerCase())}${
+        engText?' · '+esc(engText):''}`
     : 'Keine Frage in dieser Auswahl';
 
   /* Bei Fehlern und Markierungen die dichtesten Themenfelder voranstellen. */
@@ -1814,14 +1827,16 @@ function fragenListe(){
   if((Q.status==='falsch'||Q.status==='mark') && TREFFER.length){
     const feld={};
     for(const q of TREFFER){ const f=themenfeld(q); (feld[f]=feld[f]||{f, kat:q.kategorie, n:0}); feld[f].n++; }
-    const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,6);
-    kopf.innerHTML = `<div class="card" style="margin-bottom:22px">
-      <div class="feld" style="border-bottom:1px solid var(--line)">
-        <span class="nm" style="font-weight:600;color:var(--ink)">Dichteste Themenfelder</span>
-        <span class="ct" style="width:auto">${Object.keys(feld).length} insgesamt</span></div>
-      ${felder.map(f=>`<div class="feld k-${f.kat}">
-        <span class="sq"></span><span class="nm">${esc(f.f)}</span>
-        <span class="ct fehler" style="width:auto">${f.n}</span></div>`).join('')}
+    const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,5);
+    /* Die Einheit steht einmal im Kopf – sonst stünde „falsch“ fünfmal
+       untereinander und der Block schöbe die Fragen vom Bildschirm. */
+    const wort = Q.status==='mark' ? 'markiert' : 'falsch';
+    kopf.innerHTML = `<div class="card liste dichtkarte">
+      <div class="listenkopf">Dichteste Themenfelder<span>${esc(wort)} · ${Object.keys(feld).length} Felder</span></div>
+      ${felder.map(f=>`<div class="zeile k-${f.kat}">
+        <span class="pt"></span>
+        <span class="mitte"><span class="nm">${esc(f.f)}</span></span>
+        <span class="wert tnum">${f.n}</span></div>`).join('')}
     </div>`;
   } else kopf.innerHTML='';
 
@@ -1835,9 +1850,13 @@ function fragenListe(){
 
 /* Eine Frage als aufklappbarer Eintrag. */
 function poolEintrag(q, a){
+  /* In der Gruppenliste steht der Prüfungsteil schon in der Überschrift – die
+     rote Marke darüber war lauter als die Frage selbst. Statt des gefüllten
+     Häkchens genügt ein Punkt; die Frage bleibt auf zwei Zeilen, damit alle
+     Zeilen gleich hoch sind. */
   return `<details class="rev"><summary>
-    <span class="mk ${a?(a.ok?'r':'w'):'s'}">${a?(a.ok?'✓':'✕'):'·'}</span>
-    <span><span class="tagrow"><span class="tag k-${q.kategorie}" style="font-size:11px">${katKurz(q.kategorie)}</span></span>${stemHtml(q.frage)}</span></summary>
+    <span class="mkp ${a?(a.ok?'r':'w'):'s'}"></span>
+    <span class="revfrage">${stemHtml(q.frage)}</span></summary>
     <div class="body">
       ${artikelHtml(q, false)}
       <div class="opts">${q.optionen.map((o,j)=>
@@ -1863,25 +1882,27 @@ function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert
      ist, um sie am Stück zu überblicken. Sonst bleibt der Abschnittsindex
      stehen und die Seite bleibt kurz – auch bei tausenden Fragen. */
   const kompakt = fragen.length > 40 && gruppen.length > 1;
-  box.innerHTML = gruppen.map(({g,items})=>{
+  box.innerHTML = '<div class="gebietblock liste">' + gruppen.map(({g,items})=>{
     const auf = offenSet.has(g.id) || (gefiltert && !kompakt);
     const zeigt = Math.min(items.length, mehrZaehler[g.id] || schritt);
     return `<details class="gebiet" data-gruppe="${g.id}"${auf?' open':''}>
-      <summary>
-        <span class="pfeil">▶</span>
-        <span class="name k-${g.id}">${esc(g.name)}</span>
-        <span class="zahl">${items.length} ${items.length===1?'Frage':'Fragen'}</span>
+      <summary class="zeile k-${g.id}">
+        <span class="pt"></span>
+        <span class="mitte">
+          <span class="nm">${esc(g.name)}</span>
+          <span class="sub">${items.length} ${items.length===1?'Frage':'Fragen'}</span>
+        </span>
+        <span class="gpfeil"></span>
       </summary>
-      <div style="padding:14px 16px 6px">
+      <div class="gebiet-inhalt">
         ${items.slice(0,zeigt).map(q=>poolEintrag(q,l[q.id])).join('')}
         ${items.length>zeigt
-          ? `<div class="morerow" style="border-top:0;padding-left:0"><button class="link" data-mehr="${g.id}">Weitere ${
+          ? `<div class="morerow gebiet-mehr"><button class="link" data-mehr="${g.id}">Weitere ${
               Math.min(schritt, items.length-zeigt)} von ${items.length-zeigt} anzeigen</button></div>`
-          : (items.length>schritt? `<div class="morerow" style="border-top:0;padding-left:0"><button class="link" data-weniger="${g.id}">Wieder einklappen</button></div>`:'')}
+          : (items.length>schritt? `<div class="morerow gebiet-mehr"><button class="link" data-weniger="${g.id}">Wieder einklappen</button></div>`:'')}
       </div>
     </details>`;
-  }).join('')
-  + (kompakt ? `<p class="hint" style="margin:12px 2px 0">${fragen.length} Fragen in ${gruppen.length} Prüfungsteilen. Einen öffnen, um nachzulesen.</p>` : '');
+  }).join('') + '</div>';
   $$(ziel+' .gebiet').forEach(d=>d.ontoggle=()=>{
     if(d.open) offenSet.add(d.dataset.gruppe); else offenSet.delete(d.dataset.gruppe);
   });
@@ -1980,7 +2001,7 @@ function quellenListe(){
     + `<b style="color:var(--ink)">${mitText.length}</b> davon als Volltext gelesen`
     + (textseiten? ` (${textseiten.toLocaleString('de-DE')} Seiten)`:'')
     + (QU_ALLE.length-mitText.length? `, <b style="color:var(--gold)">${QU_ALLE.length-mitText.length} ohne Volltext</b>`:'')
-    + ` · aus ${mb(gb)} PDF gewonnen, die selbst nicht mehr gespeichert werden`
+    + ` · aus ${mb(gb)} PDF`
     + `<div class="herkunft" style="margin-top:12px">${zaehl
         .sort((a,b)=>b[1]-a[1])
         .map(([s2,n])=>`<span class="stufe ${esc(s2)}" title="${esc((STUFE[s2]||STUFE.sonstige).lang)}">${esc((STUFE[s2]||STUFE.sonstige).kurz)} ${n}</span>`).join('')}</div>`
@@ -1992,20 +2013,22 @@ function quellenListe(){
     + (gefiltert? `<div style="margin-top:12px">${r.length} Treffer · <button class="link" id="qu-frei" style="font-size:14px">Filter zurücksetzen</button></div>`:'');
 
   const gruppen = QU_KATS.map(kat=>({kat, items:r.filter(q=>q.kategorie===kat.schluessel)})).filter(g=>g.items.length);
-  $('#qu-liste').innerHTML = gruppen.length ? gruppen.map(g=>{
+  $('#qu-liste').innerHTML = gruppen.length ? '<div class="gebietblock liste">' + gruppen.map(g=>{
       const fehlt = g.items.filter(q=>!q.volltext).length;
       const seiten = g.items.reduce((a,q)=>a+(q.textseiten||0),0);
       const auf = (gefiltert && r.length<=60) || QU_OFFEN.has(g.kat.schluessel);
       return `<details class="gebiet" data-gebiet="${esc(g.kat.schluessel)}"${auf?' open':''}>
-        <summary>
-          <span class="pfeil">▶</span>
-          <span class="name">${esc(g.kat.bezeichnung)}</span>
-          ${fehlt?`<span class="fehlt">${fehlt} ohne Volltext</span>`:''}
-          <span class="zahl">${g.items.length} Quellen${seiten?' · '+seiten.toLocaleString('de-DE')+' Seiten':''}</span>
+        <summary class="zeile">
+          <span class="mitte">
+            <span class="nm">${esc(g.kat.bezeichnung)}</span>
+            <span class="sub">${g.items.length} Quellen${seiten?' · '+seiten.toLocaleString('de-DE')+' Seiten':''}${
+              fehlt?` · <b class="fehlt">${fehlt} ohne Volltext</b>`:''}</span>
+          </span>
+          <span class="gpfeil"></span>
         </summary>
         <div>${g.items.map(quellenZeile).join('')}</div>
       </details>`;
-    }).join('')
+    }).join('') + '</div>'
     : '<div class="card"><div class="empty">Keine Quelle passt zu diesen Filtern.</div></div>';
 
   /* Ein Schalter über der Liste statt zwei darunter: nach dem Aufklappen lag
@@ -2856,7 +2879,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-05-2';
+const FASSUNG = 'tt-2026-08-05-6';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){

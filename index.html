@@ -75,6 +75,15 @@ nav button.mehr.offen{color:var(--ink)}
 .page{padding-top:56px;padding-bottom:12px;border-bottom:1px solid var(--line-soft);margin-bottom:48px}
 .eyebrow{font-size:12.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted-2);font-weight:700;margin-bottom:14px}
 .lead{font-size:20px;line-height:1.5;color:var(--muted);max-width:640px;margin-top:16px}
+/* Titel und Nebenangabe in einer Zeile – der Rubrikvorspann entfällt auf dem Telefon. */
+.titelzeile{display:flex;align-items:baseline;gap:14px}
+.titelzeile h1{flex:1 1 auto;min-width:0}
+.titelzeile .kopfrechts{flex:none;font-size:13.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
+.seiten-zurueck{display:inline-flex;align-items:center;gap:8px;background:none;border:0;
+  padding:0 0 12px;font-size:14px;color:var(--muted-2)}
+.seiten-zurueck .zp{width:8px;height:8px;flex:none;border-left:1.8px solid #b6bcc4;
+  border-bottom:1.8px solid #b6bcc4;transform:rotate(45deg)}
+@media (hover:hover){.seiten-zurueck:hover{color:var(--ink)}}
 .page .row{display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap;padding-bottom:34px}
 main{padding-bottom:110px} .view{display:none} .view.on{display:block}
 
@@ -183,7 +192,11 @@ tr:last-child td{border-bottom:0}
 .tr-lab span{letter-spacing:0;text-transform:none;font-weight:400;font-size:13px;color:var(--muted-2);margin-left:auto}
 .chips{display:flex;flex-direction:column;gap:18px}
 .chipgruppe{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
-.chiptitel{flex:0 0 100%;font-size:13px;color:var(--muted-2)}
+/* Gruppenschalter gehört neben die Überschrift, nicht ans Ende der Marken –
+   sonst landet er neben einer beliebigen Marke der letzten Zeile. */
+.chipkopf{flex:0 0 100%;display:flex;align-items:center;gap:12px}
+.chiptitel{flex:1;min-width:0;font-size:13px;color:var(--muted-2)}
+.chipkopf .chip.alle{flex:none;min-height:32px;padding:0 12px}
 .chip{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--paper);
   border-radius:2px;padding:10px 15px;font-size:15px;color:var(--text)}
 .chip i{width:10px;height:10px;background:var(--kc,var(--muted));flex:none;opacity:.35}
@@ -328,7 +341,15 @@ details.navi.lang[open]>summary::before{content:"▼ "}
 .rev[open]>summary{border-bottom:1px solid var(--line-soft)}
 .mk{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;margin-top:1px}
 .mk.r{background:var(--ok)} .mk.w{background:var(--bad)} .mk.s{background:var(--muted-2)}
-.rev .body{padding:22px 22px 24px 62px}
+/* Punkt statt gefülltem Häkchen: gleiche Aussage, viel ruhigeres Listenbild. */
+.mkp{flex:none;width:9px;height:9px;border-radius:50%;margin-top:8px}
+.mkp.r{background:var(--ok)} .mkp.w{background:var(--bad)} .mkp.s{background:#cdd2d8}
+/* Zwei Zeilen je Frage – sonst sind die Zeilen 105 bis 150 px hoch und die
+   Liste wirkt unruhig. Die ganze Frage steht nach dem Aufklappen darunter. */
+.revfrage{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  min-width:0;flex:1}
+.rev[open] .revfrage{-webkit-line-clamp:unset;display:block}
+.rev .body{padding:22px 22px 24px 47px}
 .srcline{margin-top:14px;font-size:13px;color:var(--muted-2)}
 
 input,select,textarea{font:inherit;font-size:16px;padding:12px 14px;border:1px solid var(--line);border-radius:2px;background:var(--paper);color:var(--text);width:100%}
@@ -387,20 +408,32 @@ label.fld{display:flex;flex-direction:column;gap:8px;font-size:12px;letter-spaci
 .quelle.abseits{background:#fbfbfc}
 .quelle.abseits .t b{color:var(--muted);font-weight:500}
 
-/* Aufklappbare Sachgebiete */
+/* Aufklappbare Sachgebiete – ein zusammenhängender Block mit Trennlinien
+   statt einzeln schwebender Karten, wie im Trainer und auf der Übersicht. */
+.gebietblock{background:var(--paper);border:1px solid var(--line);border-radius:3px;
+  overflow:hidden;margin-bottom:14px}
+.gebietblock .gebiet{border:0;border-radius:0;margin:0;background:none}
+.gebietblock .gebiet+.gebiet{border-top:1px solid var(--line-soft)}
+/* Innen keine Karte in der Karte: die Einträge sind Zeilen mit Trennlinie. */
+.gebietblock .gebiet-inhalt{padding:0}
+.gebietblock .gebiet .rev{border:0;border-radius:0;margin:0;background:none}
+.gebietblock .gebiet .rev+.rev{border-top:1px solid var(--line-soft)}
+.gebietblock .gebiet-mehr{border-top:1px solid var(--line-soft);padding:14px 20px}
+/* Die Fragen rücken unter den Namen der Gruppe ein, nicht unter das Quadrat. */
+.gebietblock .gebiet .rev>summary{padding-left:20px;padding-right:20px}
+.gebietblock .gebiet .rev .body{padding-left:45px;padding-right:20px}
 .gebiet{border:1px solid var(--line);border-radius:3px;margin-bottom:14px;background:var(--paper)}
-.gebiet>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:14px;padding:16px 20px}
+/* Die Kopfzeile ist dieselbe Listenzeile wie auf der Übersicht und im
+   Lehrplan: Farbquadrat, Name, Zusatzangabe darunter, Winkel rechts. */
+.gebiet>summary{cursor:pointer;list-style:none}
 .gebiet>summary::-webkit-details-marker{display:none}
 @media (hover:hover){.gebiet>summary:hover{background:var(--tint)}}
 .gebiet[open]>summary{border-bottom:1px solid var(--line-soft)}
-.gebiet .pfeil{font-size:11px;color:var(--muted-2);transition:transform .15s;flex:none;width:12px}
-.gebiet[open] .pfeil{transform:rotate(90deg)}
-.gebiet .name{font-size:15px;font-weight:700;letter-spacing:.03em;color:var(--ink);flex:1;min-width:0}
-.gebiet .zahl{font-size:13px;color:var(--muted-2);white-space:nowrap;font-variant-numeric:tabular-nums}
-.gebiet .fehlt{font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap}
-.gebiet .name.k-recht,.gebiet .name.k-geschichte,.gebiet .name.k-wirtschaft,.gebiet .name.k-franzoesisch{
-  display:flex;align-items:center;gap:10px}
-.gebiet .name[class*="k-"]::before{content:"";width:10px;height:10px;background:var(--kc,var(--muted));flex:none}
+.gebiet .gpfeil{flex:none;width:8px;height:8px;margin:0 0 0 2px;align-self:center;
+  border-right:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
+  transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.gebiet[open] .gpfeil{transform:rotate(-135deg) translate(-2px,-2px)}
+.gebiet .fehlt{color:var(--gold);font-weight:700}
 .gebiet .rev{margin-bottom:10px}
 details.lp-auf{border-top:1px solid var(--line-soft)}
 details.lp-auf>summary{cursor:pointer;list-style:none;padding:15px 22px;font-size:14.5px;color:var(--ink)}
@@ -443,7 +476,8 @@ button.zeile{cursor:pointer}
   font-size:16px;font-weight:600;color:var(--ink);letter-spacing:-.01em;
   overflow:hidden;line-height:1.28}
 .liste .sub{display:block;font-size:12.5px;color:var(--muted-2);margin-top:2px}
-.liste .bar{display:block;height:4px;background:var(--tint-2);margin-top:9px;border-radius:2px;overflow:hidden}
+.liste .bar{display:block;height:3px;background:var(--tint-2);margin-top:8px;border-radius:2px;overflow:hidden;
+  max-width:180px}
 .liste .bar i{display:block;height:100%;background:var(--kc,var(--ink))}
 .liste .wert{flex:none;font-size:16px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;
   min-width:56px;text-align:right}
@@ -465,6 +499,19 @@ button.zeile{cursor:pointer}
 .lp-abdeckung span{flex:none;font-size:12.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
 .lpzeile .nm{-webkit-line-clamp:2}
 .lpzeile .wert{min-width:52px}
+/* Die Zahl rechts ist die Trefferquote, der Balken der Bearbeitungsstand –
+   ohne das kleine Wort darunter liest man beide als dieselbe Größe. */
+.lpzeile .wert em,.standzeile .wert em,.liste .wert em{display:block;font-style:normal;font-size:11px;
+  font-weight:400;color:var(--muted-2);letter-spacing:.02em;margin-top:1px}
+/* Kopfzeile einer Liste – dieselbe Form wie eine Zeile, nur ohne Ziel. */
+.listenkopf{display:flex;align-items:baseline;gap:14px;padding:14px 20px;
+  border-bottom:1px solid var(--line);font-size:15px;font-weight:700;color:var(--ink)}
+.listenkopf span{margin-left:auto;font-size:12.5px;font-weight:400;color:var(--muted-2);
+  font-variant-numeric:tabular-nums}
+/* Einzeilige Zeilen brauchen die volle Zeilenhöhe nicht. */
+.dichtkarte{margin-bottom:22px}
+.dichtkarte .zeile{min-height:52px;padding:11px 20px}
+.dichtkarte .pt{align-self:center;margin-top:0}
 .zeile .gp{flex:none;width:9px;height:9px;border-right:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
   transform:rotate(-45deg);margin-left:2px}
 .chip-start,.chip-fertig,.chip-stand{flex:none;display:inline-flex;align-items:center;justify-content:center;
@@ -472,8 +519,6 @@ button.zeile{cursor:pointer}
 .chip-start{background:var(--ink);color:#fff}
 .chip-fertig{background:var(--ok-bg);color:var(--ok);border:1px solid #c4ded1}
 .chip-stand{background:var(--tint);color:var(--muted);border:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
-.eyebrow .kopfrechts{float:right;font-weight:400;letter-spacing:0;text-transform:none;
-  font-size:12.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
 
 /* Abdeckung des Lehrplans: Aufstieg über drei Ebenen statt einer langen Liste */
 .lp-brot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 22px;
@@ -608,18 +653,17 @@ button.zeile{cursor:pointer}
     padding-top:calc(10px + env(safe-area-inset-top));
     padding-bottom:12px; margin-bottom:16px;
   }
-  .page .eyebrow{
-    display:flex; align-items:center; gap:10px;
-    font-size:12.5px; letter-spacing:.11em; margin-bottom:0;
-  }
-  /* Flagge links neben der Rubrik – der Rest der Marke entfällt. */
-  .page .eyebrow::before{
+  /* Kein Rubrikvorspann über dem Titel – nur der Titel, wie in einer App. */
+  .page .eyebrow{ display:none }
+  .page .titelzeile{ align-items:center; gap:11px }
+  /* Flagge als Marke links neben dem Titel. */
+  .page .titelzeile::before{
     content:""; width:5px; height:26px; flex:none; border-radius:1px;
     background:linear-gradient(#000 0 33.4%, #dd0000 33.4% 66.7%, #ffcc00 66.7% 100%);
   }
-  .page .eyebrow .kopfrechts{ float:none; margin-left:auto }
-  .page .eyebrow .link{ margin-left:0 }
-  .page h1{ margin-top:6px }
+  .page .titelzeile .kopfrechts{ margin-left:auto }
+  .page .seiten-zurueck{ padding:0 0 8px; font-size:13.5px }
+  .page h1{ margin-top:0 }
   .page .lead{ display:none }
   .page .row{ padding-bottom:0; gap:0; display:block }
   .eyebrow{ font-size:11.5px; margin-bottom:8px; }
@@ -779,12 +823,23 @@ button.zeile{cursor:pointer}
      Ende einer womöglich sehr langen Liste zu scrollen. */
   /* Kennungen statt Klassen: die allgemeinen Regeln stehen weiter unten in
      der Datei und würden sonst gewinnen. */
-  #q-status{ gap:3px; padding:3px; margin-bottom:14px }
-  #q-status button{ min-height:40px; border-radius:9px; padding:0 8px; font-size:13.5px; gap:5px }
-  #q-status button em{ font-size:11px }
-  .suchzeile #q-search{ min-height:48px; border-radius:12px }
-  #q-filter-auf{ min-height:48px; border-radius:12px }
-  #q-filter{ border-radius:12px; gap:12px }
+  /* Die Markenzeile läuft bis an den Bildschirmrand – so ist erkennbar,
+     dass sie sich schieben lässt, statt am Kartenrand abgeschnitten zu wirken. */
+  #q-status{
+    gap:8px; margin-bottom:24px;
+    margin-left:calc(-1 * max(16px, env(safe-area-inset-left)));
+    margin-right:calc(-1 * max(16px, env(safe-area-inset-right)));
+    padding-left:max(16px, env(safe-area-inset-left));
+    padding-right:max(16px, env(safe-area-inset-right));
+  }
+  #q-status button{ padding:11px 15px; font-size:14px; gap:6px }
+  #q-status button em{ font-size:12px }
+  /* Der Segmentschalter gehört zum Titel, Suche und Marken sind ein zweiter
+     Block, die Liste ein dritter – dazwischen jeweils spürbar Luft. */
+  #q-seg{ margin-bottom:26px }
+  #q-pane-fragen .suchzeile{ min-height:50px; border-radius:12px; margin-bottom:14px }
+  #q-zahl{ margin:0 2px 14px }
+  #q-filter{ border-radius:12px; gap:12px; margin-bottom:22px }
   #q-filter .fld{ flex:1 1 100% }
 }
 
@@ -971,6 +1026,9 @@ button.zeile{cursor:pointer}
   .rev{ border-radius:14px; margin-bottom:10px }
   .rev>summary{ padding:15px 16px; font-size:15.5px; gap:12px; min-height:56px }
   .rev .body{ padding:0 16px 16px }
+  /* Auf dem Telefon ist die Breite zu kostbar für einen Einzug – Antworten
+     und Erläuterung laufen über die volle Zeile. */
+  .gebietblock .gebiet .rev .body{ padding-left:20px; padding-right:20px }
   .opt.static{ min-height:0; padding:12px 14px; font-size:15px; border-radius:11px }
   .expl{ padding:14px 16px; font-size:14.5px; border-radius:0 8px 8px 0 }
   .srcline{ font-size:12px }
@@ -1022,7 +1080,9 @@ button.zeile{cursor:pointer}
   #qu-filterkarte .fld>span, #qu-filterkarte .fld{ font-size:11px }
   #qu-filterkarte #qu-neu{ flex:1 1 100%; min-height:50px; border-radius:12px }
 
+  .gebietblock{ border-radius:14px }
   .gebiet{ border-radius:14px } .gebiet>summary{ padding:15px 16px; gap:10px; min-height:56px }
+  .gebietblock .gebiet{ border-radius:0 }
   .quelle{ padding:13px 16px; gap:10px; flex-wrap:wrap } .quelle .akt{ width:100%; justify-content:flex-end }
 }
 
@@ -1038,25 +1098,42 @@ button.zeile{cursor:pointer}
    Aus dem iPhone-Umbau übernommen – gilt auch am Schreibtisch
    ===================================================================== */
 /* Statusfilter unter "Fragen" – dieselbe Bildsprache wie die Chips im Trainer */
-/* Statusfilter: eine ruhige Zeile in derselben Form wie die Segmentschalter.
-   Fünf Kästchen mit Rahmen brachen vorher in zwei Reihen um. */
-.statusfilter{display:flex;gap:4px;background:var(--tint-2);border-radius:12px;padding:4px;
-  margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
+/* Statusfilter: freistehende Marken, damit nicht zwei graue Wannen
+   direkt übereinander stehen. Der Segmentschalter darüber bleibt die Wanne. */
+.statusfilter{display:flex;gap:7px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none;
+  padding-bottom:2px}
 .statusfilter::-webkit-scrollbar{display:none}
-.statusfilter button{flex:1 1 0;min-width:0;display:inline-flex;align-items:baseline;justify-content:center;
-  gap:6px;border:0;background:none;border-radius:9px;min-height:40px;padding:0 10px;
-  font-size:14.5px;color:var(--muted);white-space:nowrap}
-.statusfilter button.an{background:var(--paper);color:var(--ink);font-weight:700;
-  box-shadow:0 1px 3px rgba(0,0,0,.1)}
+/* Die Hoehe kommt aus den Innenabstaenden, nicht aus min-height: bei
+   align-items:baseline sitzt die Grundlinie sonst oben und der gesamte Rest
+   der Mindesthoehe faellt nach unten - die Beschriftung klebt am Rand. */
+.statusfilter button{flex:0 0 auto;display:inline-flex;align-items:baseline;justify-content:center;
+  gap:6px;border:1px solid var(--line);background:var(--paper);border-radius:999px;
+  padding:10px 15px;line-height:1.2;font-size:14.5px;color:var(--muted);white-space:nowrap}
+.statusfilter button.an{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
 .statusfilter button em{font-style:normal;font-size:12px;color:var(--muted-2);font-variant-numeric:tabular-nums}
-.statusfilter button.an em{color:var(--muted)}
+.statusfilter button.an em{color:rgba(255,255,255,.72)}
+@media (hover:hover){.statusfilter button:not(.an):hover{border-color:var(--ink);color:var(--ink)}}
 /* Kompakte Suchzeile; die selteneren Filter liegen dahinter. */
-.suchzeile{display:flex;gap:10px;margin:0 0 14px}
-.suchzeile input[type=search]{flex:1;min-width:0;border:1px solid var(--line);border-radius:2px;
-  padding:12px 14px;font:inherit;font-size:16px;background:var(--paper);color:var(--ink)}
-.suchzeile input[type=search]:focus{outline:none;border-color:var(--ink)}
-.suchzeile .btn{flex:none;white-space:nowrap;max-width:52%;overflow:hidden;text-overflow:ellipsis}
-.suchzeile .btn.an{border-color:var(--ink);background:var(--tint);font-weight:700}
+/* Ein Suchfeld statt Feld plus gleich großem Knopf: der Filter sitzt darin. */
+.suchzeile{display:flex;align-items:center;gap:10px;margin:0 0 14px;
+  border:1px solid var(--line);border-radius:2px;background:var(--paper);padding:0 6px 0 12px}
+.suchzeile:focus-within{border-color:var(--ink)}
+.suchzeile input[type=search]{flex:1;min-width:0;border:0;background:none;
+  padding:12px 0;font:inherit;font-size:16px;color:var(--ink)}
+.suchzeile input[type=search]:focus{outline:none}
+.suchzeile .such-lupe{flex:none;width:15px;height:15px;border:1.8px solid #a9b0b8;border-radius:50%;
+  position:relative}
+.suchzeile .such-lupe::after{content:"";position:absolute;right:-5px;bottom:-3px;width:6px;height:1.8px;
+  background:#a9b0b8;transform:rotate(45deg)}
+/* Drei Striche, die nach rechts kürzer werden – das übliche Filterzeichen. */
+.such-filter{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  width:38px;height:38px;border:0;border-radius:9px;background:none;cursor:pointer}
+.such-filter::before,.such-filter::after,.such-filter>span{content:"";display:block;height:1.8px;
+  border-radius:1px;background:#7b838d}
+.such-filter::before{width:15px} .such-filter>span{width:10px} .such-filter::after{width:5px}
+.such-filter.an{background:var(--tint)}
+.such-filter.an::before,.such-filter.an::after,.such-filter.an>span{background:var(--ink)}
+@media (hover:hover){.such-filter:hover{background:var(--tint-2)}}
 .filterbox[hidden]{display:none}
 .filterbox{display:flex;gap:16px;align-items:end;flex-wrap:wrap;
   border:1px solid var(--line);border-radius:2px;padding:16px;margin:0 0 18px}
@@ -1064,6 +1141,7 @@ button.zeile{cursor:pointer}
 .filterbox .link{flex:none;padding-bottom:12px}
 
 .zahlzeile{font-size:14px;color:var(--muted-2);margin:0 2px 16px;font-variant-numeric:tabular-nums}
+.zahlzeile[hidden]{display:none}
 .zahlzeile b{color:var(--ink);font-weight:700}
 
 /* "Mehr": Konto und Verwaltung auf einer Seite */
