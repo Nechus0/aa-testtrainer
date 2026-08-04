@@ -2879,7 +2879,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-05-5';
+const FASSUNG = 'tt-2026-08-05-6';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){

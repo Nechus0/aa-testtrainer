@@ -832,7 +832,7 @@ button.zeile{cursor:pointer}
     padding-left:max(16px, env(safe-area-inset-left));
     padding-right:max(16px, env(safe-area-inset-right));
   }
-  #q-status button{ min-height:40px; padding:0 15px; font-size:14px; gap:6px }
+  #q-status button{ padding:11px 15px; font-size:14px; gap:6px }
   #q-status button em{ font-size:12px }
   /* Der Segmentschalter gehört zum Titel, Suche und Marken sind ein zweiter
      Block, die Liste ein dritter – dazwischen jeweils spürbar Luft. */
@@ -1103,9 +1103,12 @@ button.zeile{cursor:pointer}
 .statusfilter{display:flex;gap:7px;margin:0 0 16px;overflow-x:auto;scrollbar-width:none;
   padding-bottom:2px}
 .statusfilter::-webkit-scrollbar{display:none}
+/* Die Hoehe kommt aus den Innenabstaenden, nicht aus min-height: bei
+   align-items:baseline sitzt die Grundlinie sonst oben und der gesamte Rest
+   der Mindesthoehe faellt nach unten - die Beschriftung klebt am Rand. */
 .statusfilter button{flex:0 0 auto;display:inline-flex;align-items:baseline;justify-content:center;
-  gap:6px;border:1px solid var(--line);background:var(--paper);border-radius:999px;min-height:38px;
-  padding:0 15px;font-size:14.5px;color:var(--muted);white-space:nowrap}
+  gap:6px;border:1px solid var(--line);background:var(--paper);border-radius:999px;
+  padding:10px 15px;line-height:1.2;font-size:14.5px;color:var(--muted);white-space:nowrap}
 .statusfilter button.an{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
 .statusfilter button em{font-style:normal;font-size:12px;color:var(--muted-2);font-variant-numeric:tabular-nums}
 .statusfilter button.an em{color:rgba(255,255,255,.72)}
