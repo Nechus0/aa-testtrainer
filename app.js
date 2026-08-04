@@ -789,7 +789,6 @@ function themenfeld(q){
   const bekannt = planOberfelder()[lpTeil(q)];
   return (bekannt && bekannt.size && !bekannt.has(ober)) ? SONSTIGE : ober;
 }
-let WEAK_ALLE=false;
 function weak(){
   const m={};
   for(const a of S.antworten){
@@ -801,7 +800,7 @@ function weak(){
   const alle=Object.values(m).filter(v=>v.ok<v.n)
     .sort((a,b)=>(b.n-b.ok)-(a.n-a.ok) || (a.ok/a.n)-(b.ok/b.n) || b.n-a.n);
   if(!alle.length){ $('#weak').innerHTML='<div class="empty">Noch keine Schwächen erkennbar – oder noch zu wenige Antworten.</div>'; return; }
-  const zeige = WEAK_ALLE ? alle.slice(0,14) : alle.slice(0,5);
+  const zeige = alle.slice(0,5);
   $('#weak').innerHTML = zeige.map(v=>{
     const q=pct(v.ok,v.n);
     return `<div class="feld k-${v.kat}">
@@ -810,12 +809,7 @@ function weak(){
       <span class="bar"><i style="width:${q}%"></i></span>
       <span class="qt" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %</span>
       <span class="ct fehler">${v.n-v.ok}</span></div>`;
-  }).join('')
-    + (alle.length>5
-        ? `<div class="morerow"><button class="link" id="weak-more">${
-            WEAK_ALLE?'Weniger anzeigen':'Alle '+alle.length+' Themenfelder anzeigen'}</button></div>`
-        : '');
-  const b=$('#weak-more'); if(b) b.onclick=()=>{ WEAK_ALLE=!WEAK_ALLE; weak(); };
+  }).join('');
 }
 
 /* Letzte Durchgänge als Liste, nicht als Tabelle: vier Spalten brechen auf dem
@@ -915,43 +909,18 @@ function renderTrainer(){
     : TR.bereiche.size<=2 ? gewaehlteNamen.join(', ')
     : TR.bereiche.size+' Bereiche';
 
-  const zeile = (id, name, wert, inhalt) => {
-    const auf = TR.offen===id;
-    return `<button class="grp-zeile${auf?' auf':''}" data-auf="${id}" aria-expanded="${auf}">
-        <span class="gl">${name}</span><span class="gw">${esc(wert)}</span><span class="gp"></span>
-      </button>
-      <div class="grp-inhalt"${auf?'':' hidden'}>${inhalt}</div>`;
-  };
+  /* Eine Zeile je Einstellung. Angetippt öffnet sie ein eigenes Fenster –
+     vorher schoben die aufgeklappten Blöcke alles darunter nach unten. */
+  const zeile = (id, name, wert) =>
+    `<button class="grp-zeile" data-auf="${id}">
+       <span class="gl">${name}</span><span class="gw">${esc(wert)}</span><span class="gp"></span>
+     </button>`;
 
   box.innerHTML = `
     <div class="card grpliste">
-      ${zeile('bereiche','Bereiche',bereichWert,`
-        <div class="chips">
-          ${['fach','fr'].map(g=>`<div class="chipgruppe">
-            <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
-            ${BEREICHE.filter(b=>b.gruppe===g).map(b=>{
-              const qs=trBereichFragen(b.id);
-              const off=qs.filter(q=>!l[q.id]).length;
-              return `<button class="chip k-${b.kls}${TR.bereiche.has(b.id)?' an':''}" data-bereich="${b.id}">
-                <i></i>${esc(b.kurz)}<em>${qs.length}${off?' · '+off+' offen':''}</em></button>`;
-            }).join('')}
-            <button class="chip alle" data-gruppe="${g}">${
-              BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
-          </div>`).join('')}
-        </div>`)}
-      ${zeile('auswahl','Schwerpunkt',AUSWAHL.find(a=>a.id===TR.auswahl).name.toLowerCase(),`
-        <div class="optionen">
-          ${AUSWAHL.map(a=>`<button class="tr-opt${TR.auswahl===a.id?' an':''}" data-auswahl="${a.id}">
-            <b>${esc(a.name)}</b><span>${esc(a.erl)}</span></button>`).join('')}
-        </div>`)}
-      ${zeile('zeit','Zeit',TR.zeit? (max? mmss(trZeit(TR.anzahl))+' Minuten':'mit Prüfungszeit') : 'ohne Zeitdruck',`
-        <div class="optionen zwei">
-          <button class="tr-opt${TR.zeit?'':' an'}" data-zeit="0"><b>Ohne Zeitdruck</b>
-            <span>In Ruhe nachdenken, keine Uhr. Für das Tagespensum und zum Lernen.</span></button>
-          <button class="tr-opt${TR.zeit?' an':''}" data-zeit="1"><b>Mit Prüfungszeit</b>
-            <span>${nurFr?'Anteilig am Budget von 30 Minuten für 52 Aufgaben.':'Rund 24 Sekunden je Frage, wie im Original.'}
-              ${max?'Für '+TR.anzahl+' Fragen: '+mmss(trZeit(TR.anzahl))+' Min.':''}</span></button>
-        </div>`)}
+      ${zeile('bereiche','Bereiche',bereichWert)}
+      ${zeile('auswahl','Schwerpunkt',AUSWAHL.find(a=>a.id===TR.auswahl).name.toLowerCase())}
+      ${zeile('zeit','Zeit',TR.zeit? (max? mmss(trZeit(TR.anzahl))+' Minuten':'mit Prüfungszeit') : 'ohne Zeitdruck')}
     </div>
 
     <div class="card pad umfangkarte">
@@ -974,24 +943,9 @@ function renderTrainer(){
         : 'Keine Fragen für diese Zusammenstellung'}</div>
     </div>`;
 
-  $$('#trainer [data-auf]').forEach(b=>b.onclick=()=>{
-    TR.offen = TR.offen===b.dataset.auf ? null : b.dataset.auf; renderTrainer(); });
+  $$('#trainer [data-auf]').forEach(b=>b.onclick=()=>trWahlOeffnen(b.dataset.auf));
 
-  $$('#trainer [data-bereich]').forEach(b=>b.onclick=()=>{
-    const id=b.dataset.bereich;
-    if(TR.bereiche.has(id)){ if(TR.bereiche.size>1) TR.bereiche.delete(id); }
-    else TR.bereiche.add(id);
-    renderTrainer();
-  });
-  $$('#trainer [data-gruppe]').forEach(b=>b.onclick=()=>{
-    const g=b.dataset.gruppe, ids=BEREICHE.filter(x=>x.gruppe===g).map(x=>x.id);
-    if(ids.every(i=>TR.bereiche.has(i))){ ids.forEach(i=>TR.bereiche.delete(i)); if(!TR.bereiche.size) TR.bereiche.add('recht'); }
-    else ids.forEach(i=>TR.bereiche.add(i));
-    renderTrainer();
-  });
-  $$('#trainer [data-auswahl]').forEach(b=>b.onclick=()=>{ TR.auswahl=b.dataset.auswahl; renderTrainer(); });
   $$('#trainer [data-anzahl]').forEach(b=>b.onclick=()=>{ TR.anzahl=+b.dataset.anzahl; renderTrainer(); });
-  $$('#trainer [data-zeit]').forEach(b=>b.onclick=()=>{ TR.zeit=b.dataset.zeit==='1'; renderTrainer(); });
   const sch=$('#tr-schieber');
   if(sch){
     sch.oninput=()=>{ TR.anzahl=+sch.value; $('#tr-zahl').textContent=TR.anzahl; };
@@ -1000,6 +954,67 @@ function renderTrainer(){
   const los=$('#tr-los');
   if(los) los.onclick=()=>start({typ:'trainer', zeit:TR.zeit? trZeit(TR.anzahl):0,
     titel:'Training · '+AUSWAHL.find(a=>a.id===TR.auswahl).name});
+}
+
+/* Auswahlfenster für Bereiche, Schwerpunkt und Zeit. */
+function trWahlOeffnen(feld){
+  const l = letzteJeFrage();
+  const max = trPool().length;
+  const nurFr = [...TR.bereiche].every(id=>BEREICHE.find(b=>b.id===id).gruppe==='fr');
+  let titel, inhalt;
+
+  if(feld==='bereiche'){
+    titel = 'Bereiche';
+    inhalt = `<div class="chips">
+      ${['fach','fr'].map(g=>`<div class="chipgruppe">
+        <span class="chiptitel">${g==='fach'?'Fachtests':'Sprachtest Französisch'}</span>
+        ${BEREICHE.filter(b=>b.gruppe===g).map(b=>{
+          const qs=trBereichFragen(b.id);
+          const off=qs.filter(q=>!l[q.id]).length;
+          return `<button class="chip k-${b.kls}${TR.bereiche.has(b.id)?' an':''}" data-bereich="${b.id}">
+            <i></i>${esc(b.kurz)}<em>${qs.length}${off?' · '+off+' offen':''}</em></button>`;
+        }).join('')}
+        <button class="chip alle" data-gruppe="${g}">${
+          BEREICHE.filter(b=>b.gruppe===g).every(b=>TR.bereiche.has(b.id))?'keine':'alle'}</button>
+      </div>`).join('')}</div>`;
+  } else if(feld==='auswahl'){
+    titel = 'Schwerpunkt';
+    inhalt = `<div class="optionen">${AUSWAHL.map(a=>
+      `<button class="tr-opt${TR.auswahl===a.id?' an':''}" data-auswahl="${a.id}">
+         <b>${esc(a.name)}</b><span>${esc(a.erl)}</span></button>`).join('')}</div>`;
+  } else {
+    titel = 'Zeit';
+    inhalt = `<div class="optionen">
+      <button class="tr-opt${TR.zeit?'':' an'}" data-zeit="0"><b>Ohne Zeitdruck</b>
+        <span>In Ruhe nachdenken, keine Uhr.</span></button>
+      <button class="tr-opt${TR.zeit?' an':''}" data-zeit="1"><b>Mit Prüfungszeit</b>
+        <span>${nurFr?'Anteilig am Budget von 30 Minuten für 52 Aufgaben.':'Rund 24 Sekunden je Frage, wie im Original.'}${
+          max?' Für '+TR.anzahl+' Fragen: '+mmss(trZeit(TR.anzahl))+' Min.':''}</span></button>
+    </div>`;
+  }
+
+  const d = dialog(`<div class="wahlkopf"><h2>${titel}</h2>
+      <button class="btn sm" id="w-fertig">Fertig</button></div>
+    <div id="w-inhalt">${inhalt}</div>`);
+  const zu = ()=>{ d.remove(); renderTrainer(); };
+  $('#w-fertig').onclick = zu;
+
+  /* Mehrfachauswahl bleibt offen, Einfachauswahl schließt sofort. */
+  const neuZeichnen = ()=>{ d.remove(); trWahlOeffnen(feld); };
+  $$('#w-inhalt [data-bereich]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.bereich;
+    if(TR.bereiche.has(id)){ if(TR.bereiche.size>1) TR.bereiche.delete(id); }
+    else TR.bereiche.add(id);
+    neuZeichnen();
+  });
+  $$('#w-inhalt [data-gruppe]').forEach(b=>b.onclick=()=>{
+    const g=b.dataset.gruppe, ids=BEREICHE.filter(x=>x.gruppe===g).map(x=>x.id);
+    if(ids.every(i=>TR.bereiche.has(i))){ ids.forEach(i=>TR.bereiche.delete(i)); if(!TR.bereiche.size) TR.bereiche.add('recht'); }
+    else ids.forEach(i=>TR.bereiche.add(i));
+    neuZeichnen();
+  });
+  $$('#w-inhalt [data-auswahl]').forEach(b=>b.onclick=()=>{ TR.auswahl=b.dataset.auswahl; zu(); });
+  $$('#w-inhalt [data-zeit]').forEach(b=>b.onclick=()=>{ TR.zeit=b.dataset.zeit==='1'; zu(); });
 }
 
 function renderMenu(){
@@ -1672,24 +1687,24 @@ function lpZeichnen(){
   const quote = (z)=> z.bearbeitet ? Math.round(z.richtig/z.bearbeitet*100) : null;
   const belegt = (stand.felder_n||0) - (stand.felder_leer||0);
 
-  const brot = LP_WEG.length
-    ? `<div class="lp-brot">
-         <button class="link" data-lp-zu="">Alle Prüfungsteile</button>
-         ${LP_WEG.map((s,i)=> i<LP_WEG.length-1
-            ? `<span>›</span><button class="link" data-lp-zu="${esc(LP_WEG.slice(0,i+1).join('||'))}">${esc(i===0?(LP_NAME[s]||s):s)}</button>`
-            : `<span>›</span><b>${esc(i===0?(LP_NAME[s]||s):s)}</b>`).join('')}
-       </div>` : '';
+  /* Statt einer Brotkrume aus drei unterstrichenen Links: eine Rücktaste auf
+     die Ebene darüber, darunter der Titel und eine ruhige Kennzahlenzeile. */
+  const elternName = LP_WEG.length===1 ? 'Alle Prüfungsteile'
+                   : LP_WEG.length===2 ? (LP_NAME[LP_WEG[0]]||LP_WEG[0]) : '';
+  const abdeckung = stand.felder_n ? Math.round(belegt/stand.felder_n*100) : 0;
+  const zurueck = LP_WEG.length
+    ? `<button class="lp-zurueck" data-lp-hoch="1"><span class="zp"></span>${esc(elternName)}</button>` : '';
 
   box.innerHTML = `
     <div class="card liste lpkarte">
-      ${brot}
       <div class="lp-kopf3">
+        ${zurueck}
         <div class="lp-titel">${esc(titel)}</div>
-        <div class="lp-kennzahlen">
-          <span><b class="tnum">${belegt}/${stand.felder_n||0}</b>Felder belegt</span>
-          <span><b class="tnum">${stand.bestand||0}</b>Fragen</span>
-          <span><b class="tnum">${stand.bearbeitet||0}</b>bearbeitet</span>
-          <span><b class="tnum">${stand.bearbeitet? Math.round(stand.richtig/stand.bearbeitet*100)+' %':'–'}</b>richtig</span>
+        <div class="lp-zeile2">${stand.bestand||0} Fragen · ${stand.bearbeitet||0} bearbeitet${
+          stand.bearbeitet? ' · '+Math.round(stand.richtig/stand.bearbeitet*100)+' % richtig':''}</div>
+        <div class="lp-abdeckung">
+          <div class="lp-balken"><i style="width:${abdeckung}%"></i></div>
+          <span>${belegt} von ${stand.felder_n||0} Feldern belegt</span>
         </div>
       </div>
       ${zeige.map(z=>{
@@ -1722,9 +1737,8 @@ function lpZeichnen(){
     if(ev.target.closest('.link')) return;
     LP_WEG = LP_WEG.concat(e.dataset.lpTiefer); LP_MEHR=15; lpZeichnen();
   });
-  $$('#lehrplan [data-lp-zu]').forEach(b=>b.onclick=()=>{
-    LP_WEG = b.dataset.lpZu ? b.dataset.lpZu.split('||') : []; LP_MEHR=15; lpZeichnen();
-  });
+  const hoch=$('#lehrplan [data-lp-hoch]');
+  if(hoch) hoch.onclick=()=>{ LP_WEG = LP_WEG.slice(0,-1); LP_MEHR=15; lpZeichnen(); };
 
   const m=$('#lp-mehr'); if(m) m.onclick=()=>{ LP_MEHR+=15; lpZeichnen(); };
   const w=$('#lp-weniger'); if(w) w.onclick=()=>{ LP_MEHR=15; lpZeichnen(); };
@@ -1733,7 +1747,7 @@ function lpZeichnen(){
 const STATUS = [
   {id:'alle',    name:'Alle',        test:()=>true},
   {id:'falsch',  name:'Falsch',      test:(q,l)=> l[q.id] && !l[q.id].ok},
-  {id:'offen',   name:'Nie gesehen', test:(q,l)=> !l[q.id]},
+  {id:'offen',   name:'Offen',       test:(q,l)=> !l[q.id]},
   {id:'richtig', name:'Richtig',     test:(q,l)=> l[q.id] && l[q.id].ok},
   {id:'mark',    name:'Markiert',    test:(q)=> MARKIERT.has(q.id)}
 ];
@@ -2842,7 +2856,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-05-1';
+const FASSUNG = 'tt-2026-08-05-2';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
