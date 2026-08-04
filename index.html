@@ -448,6 +448,18 @@ button.zeile{cursor:pointer}
 .liste .wert{flex:none;font-size:16px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;
   min-width:56px;text-align:right}
 .durchgangzeile .wert i{font-style:normal;font-weight:400;color:var(--muted-2)}
+
+/* Abdeckung des Lehrplans: Kopfzahlen und Zeilen in derselben Listenform */
+.lpkarte{overflow:hidden}
+.lp-kopf3{padding:18px 20px;border-bottom:1px solid var(--line)}
+.lp-titel{font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-.015em}
+.lp-kennzahlen{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:12px}
+.lp-kennzahlen span{display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--muted-2)}
+.lp-kennzahlen b{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.lpzeile .nm{-webkit-line-clamp:2}
+.lpzeile .wert{min-width:52px}
+.zeile .gp{flex:none;width:9px;height:9px;border-right:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
+  transform:rotate(-45deg);margin-left:2px}
 .chip-start,.chip-fertig,.chip-stand{flex:none;display:inline-flex;align-items:center;justify-content:center;
   min-height:38px;padding:0 16px;border-radius:10px;font-size:14.5px;font-weight:700;white-space:nowrap}
 .chip-start{background:var(--ink);color:#fff}
@@ -681,6 +693,8 @@ button.zeile{cursor:pointer}
   .grid{ gap:10px }
   .g4{ grid-template-columns:repeat(2,1fr) }
   .g3,.g2{ grid-template-columns:1fr }
+  /* „Letzte Durchgänge“ stand direkt unter dem Block darüber. */
+  .g2{ row-gap:30px }
 
   .card{ border-radius:14px; border-color:var(--line-soft) }
   .card.pad{ padding:16px 18px }
@@ -711,6 +725,10 @@ button.zeile{cursor:pointer}
   .feld.lp-zeile .ct{ order:5; width:auto; flex:1 1 auto; text-align:left; font-size:12.5px }
   .feld.lp-kopf .nm{ flex:1 1 100% }
   .lp-brot{ padding:12px 16px }
+  .lp-kopf3{ padding:16px 18px }
+  .lp-titel{ font-size:17px }
+  .lp-kennzahlen{ gap:10px 20px; margin-top:10px }
+  .lp-kennzahlen b{ font-size:16px }
   .paket{ padding:13px 16px; gap:10px; flex-wrap:wrap; min-height:56px }
   .paket .pn{ flex:1 1 auto } .paket .pb{ display:none }
   .paket .pt{ flex:1 1 100%; order:3; gap:14px; flex-wrap:wrap } .paket .pa{ order:2 }

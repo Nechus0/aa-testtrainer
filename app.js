@@ -442,27 +442,32 @@ function schaleBauen(){
       <div class="eyebrow">Bestand</div>
       <div class="row"><div style="flex:1;min-width:280px">
         <h1>Fragen</h1>
-        <p class="lead">Alle Fragen zum Nachschlagen, mit Lösung und Erläuterung.</p>
+        <p class="lead">Alle Fragen zum Nachschlagen – und der Lehrplan dahinter.</p>
       </div></div>
     </div>
     <div class="wrap">
-      <div class="statusfilter" id="q-status"></div>
-      <div class="suchzeile">
-        <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …">
-        <button class="btn ghost" id="q-filter-auf" aria-expanded="false">Filter</button>
+      <div class="segmente" id="q-seg">
+        <button class="seg-btn an" data-qseg="fragen">Fragen</button>
+        <button class="seg-btn" data-qseg="lehrplan">Lehrplan</button>
       </div>
-      <div class="zahlzeile" id="q-zahl"></div>
-      <div class="filterbox" id="q-filter" hidden>
-        <label class="fld">Prüfungsteil<select id="q-kat"></select></label>
-        <label class="fld">Abschnitt<select id="q-block"></select></label>
-        <button class="link" id="q-reset">Filter zurücksetzen</button>
+
+      <div id="q-pane-fragen">
+        <div class="statusfilter" id="q-status"></div>
+        <div class="suchzeile">
+          <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …">
+          <button class="btn ghost" id="q-filter-auf" aria-expanded="false">Filter</button>
+        </div>
+        <div class="zahlzeile" id="q-zahl"></div>
+        <div class="filterbox" id="q-filter" hidden>
+          <label class="fld">Prüfungsteil<select id="q-kat"></select></label>
+          <label class="fld">Abschnitt<select id="q-block"></select></label>
+          <button class="link" id="q-reset">Filter zurücksetzen</button>
+        </div>
+        <div id="q-kopf"></div>
+        <div id="poollist"></div>
       </div>
-      <div id="q-kopf"></div>
-      <div id="poollist"></div>
-      <div class="sec">
-        <div class="sec-h"><h2>Abdeckung des Lehrplans</h2><span class="note" id="lp-note"></span></div>
-        <div id="lehrplan"></div>
-      </div>
+
+      <div id="q-pane-lehrplan" hidden><div id="lehrplan"></div></div>
     </div>`;
 
   $('#v-mehr').innerHTML = `
@@ -816,7 +821,7 @@ function weak(){
 /* Letzte Durchgänge als Liste, nicht als Tabelle: vier Spalten brechen auf dem
    Telefon um und der Titel wird unleserlich schmal. */
 function sessionsListe(){
-  const rows=S.sessions.slice(-9).reverse();
+  const rows=S.sessions.slice(-4).reverse();
   $('#sessions').innerHTML = rows.length
     ? `<div class="liste">${rows.map(s=>{
         const farbe = s.quote>=70?'var(--ok)':s.quote>=50?'var(--gold)':'var(--bad)';
@@ -1642,32 +1647,30 @@ function lpZeichnen(){
   const REIHE = ['recht','geschichte','wirtschaft','textverstaendnis','wortschatz','grammatik'];
 
   /* Welche Zeilen stehen auf dieser Ebene? */
-  let zeilen, kls, titel, unterzeile;
+  let zeilen, kls, titel, stand;
   if(!katWahl){
     zeilen = REIHE.filter(k=>baum[k]).map(k=>({schluessel:k, ...baum[k]}));
-    const b = zeilen.reduce((a,z)=>a+z.bestand,0), e = zeilen.reduce((a,z)=>a+z.bearbeitet,0);
     titel = 'Alle Prüfungsteile';
-    unterzeile = `${e} von ${b} Fragen bearbeitet · ${zeilen.reduce((a,z)=>a+z.felder_n,0)} Themenfelder`;
+    stand = {bestand:zeilen.reduce((a,z)=>a+z.bestand,0), bearbeitet:zeilen.reduce((a,z)=>a+z.bearbeitet,0),
+             richtig:zeilen.reduce((a,z)=>a+z.richtig,0),
+             felder_n:zeilen.reduce((a,z)=>a+z.felder_n,0), felder_leer:zeilen.reduce((a,z)=>a+z.felder_leer,0)};
   } else if(!oberWahl){
     const t = baum[katWahl] || {felder:{}};
-    kls = t.kls;
+    kls = t.kls; stand = t;
     zeilen = Object.keys(t.felder).map(o=>({schluessel:o, kls:t.kls, ...t.felder[o]}));
     titel = t.name || katWahl;
-    unterzeile = `${t.bearbeitet||0} von ${t.bestand||0} Fragen bearbeitet · ${t.felder_n||0} Themenfelder`;
   } else {
     const t = baum[katWahl] || {felder:{}};
     const o = t.felder[oberWahl] || {felder:{}};
-    kls = t.kls;
+    kls = t.kls; stand = o;
     zeilen = Object.values(o.felder).map(f=>({schluessel:f.name, kls:t.kls, blatt:true, ...f}));
     titel = oberWahl;
-    unterzeile = `${o.bearbeitet||0} von ${o.bestand||0} Fragen bearbeitet · ${o.felder_n||0} Themenfelder`;
   }
-  /* „Weitere Themen“ steht immer am Ende – es ist keine Rubrik des Lehrplans. */
-  zeilen.sort((a,b)=> (a.name===SONSTIGE)-(b.name===SONSTIGE)
-                   || b.bestand-a.bestand || a.name.localeCompare(b.name,'de'));
+  zeilen.sort((a,b)=> b.bestand-a.bestand || a.name.localeCompare(b.name,'de'));
 
   const zeige = zeilen.slice(0, LP_MEHR);
   const quote = (z)=> z.bearbeitet ? Math.round(z.richtig/z.bearbeitet*100) : null;
+  const belegt = (stand.felder_n||0) - (stand.felder_leer||0);
 
   const brot = LP_WEG.length
     ? `<div class="lp-brot">
@@ -1678,45 +1681,51 @@ function lpZeichnen(){
        </div>` : '';
 
   box.innerHTML = `
-    <div class="card">
+    <div class="card liste lpkarte">
       ${brot}
-      <div class="feld lp-kopf" style="border-bottom:1px solid var(--line);padding-top:16px;padding-bottom:16px">
-        <span class="nm">${esc(titel)}</span>
-        <span class="uz">${esc(unterzeile)}</span>
+      <div class="lp-kopf3">
+        <div class="lp-titel">${esc(titel)}</div>
+        <div class="lp-kennzahlen">
+          <span><b class="tnum">${belegt}/${stand.felder_n||0}</b>Felder belegt</span>
+          <span><b class="tnum">${stand.bestand||0}</b>Fragen</span>
+          <span><b class="tnum">${stand.bearbeitet||0}</b>bearbeitet</span>
+          <span><b class="tnum">${stand.bearbeitet? Math.round(stand.richtig/stand.bearbeitet*100)+' %':'–'}</b>richtig</span>
+        </div>
       </div>
       ${zeige.map(z=>{
         const p = z.bestand ? Math.round(z.bearbeitet/z.bestand*100) : 0;
         const q = quote(z);
-        return `<div class="feld lp-zeile k-${z.kls||kls||'recht'}"${z.blatt?'':` data-lp-tiefer="${esc(z.schluessel)}"`}>
-          <span class="sq"></span>
-          <span class="nm" title="${esc(z.name)}">${esc(z.name)}${
-            z.blatt && z.imPlan===false ? ' <span class="lp-frei">nicht im Plan</span>' : ''}</span>
-          <span class="bar" title="${z.bearbeitet} von ${z.bestand} bearbeitet"><i style="width:${p}%"></i></span>
-          <span class="qt tnum">${z.bearbeitet}/${z.bestand}</span>
-          <span class="ct">${
-            z.bestand===0 ? 'noch keine Frage'
-              : (q===null ? 'nicht bearbeitet' : q+' % richtig')}</span>
-          ${z.blatt? '' : '<span class="lp-pfeil">›</span>'}
-        </div>`;
+        const zbelegt = (z.felder_n||0) - (z.felder_leer||0);
+        const sub = z.blatt
+          ? (z.bestand ? `${z.bearbeitet} von ${z.bestand} bearbeitet`
+                       : (z.imPlan===false ? 'nicht im Lehrplan' : 'noch keine Frage'))
+          : `${zbelegt} von ${z.felder_n} Feldern · ${z.bearbeitet} von ${z.bestand} bearbeitet`;
+        return `<${z.blatt?'div':'button'} class="zeile lpzeile k-${z.kls||kls||'recht'}"${
+            z.blatt?'':` data-lp-tiefer="${esc(z.schluessel)}"`}>
+          <span class="pt"></span>
+          <span class="mitte">
+            <span class="nm">${esc(z.name)}</span>
+            <span class="sub">${sub}</span>
+            <span class="bar"><i style="width:${p}%"></i></span>
+          </span>
+          <span class="wert tnum">${q===null ? '–' : q+' %'}</span>
+          ${z.blatt? '' : '<span class="gp"></span>'}
+        </${z.blatt?'div':'button'}>`;
       }).join('')}
       ${zeilen.length>zeige.length
         ? `<div class="morerow"><button class="link" id="lp-mehr">Weitere ${
              Math.min(15, zeilen.length-zeige.length)} von ${zeilen.length-zeige.length} anzeigen</button></div>`
         : (LP_MEHR>15 ? `<div class="morerow"><button class="link" id="lp-weniger">Wieder einklappen</button></div>`:'')}
-      <div class="feld xs mute" style="border-top:1px solid var(--line-soft);border-bottom:0">
-        <span class="nm" style="white-space:normal">bearbeitet / im Bestand</span>
-      </div>
     </div>`;
 
-  $('#lp-note').textContent = LP_WEG.length ? 'in diesem Bereich' : 'ganzer Lehrplan';
-
   $$('#lehrplan [data-lp-tiefer]').forEach(e=>e.onclick=(ev)=>{
-    if(ev.target.closest('button')) return;
+    if(ev.target.closest('.link')) return;
     LP_WEG = LP_WEG.concat(e.dataset.lpTiefer); LP_MEHR=15; lpZeichnen();
   });
   $$('#lehrplan [data-lp-zu]').forEach(b=>b.onclick=()=>{
     LP_WEG = b.dataset.lpZu ? b.dataset.lpZu.split('||') : []; LP_MEHR=15; lpZeichnen();
   });
+
   const m=$('#lp-mehr'); if(m) m.onclick=()=>{ LP_MEHR+=15; lpZeichnen(); };
   const w=$('#lp-weniger'); if(w) w.onclick=()=>{ LP_MEHR=15; lpZeichnen(); };
 }
@@ -1742,6 +1751,15 @@ function renderFragen(){
       box.hidden=!auf; $('#q-filter-auf').setAttribute('aria-expanded', String(auf));
     };
     $('#q-reset').onclick=()=>{ ks.value=''; bs.value=''; $('#q-search').value=''; fragenListe(); };
+    /* Zwei Segmente wie im Trainer: der Bestand und der Lehrplan dahinter. */
+    $$('#q-seg .seg-btn').forEach(b=>b.onclick=()=>{
+      const s2=b.dataset.qseg;
+      $$('#q-seg .seg-btn').forEach(x=>x.classList.toggle('an', x.dataset.qseg===s2));
+      $('#q-pane-fragen').hidden = s2!=='fragen';
+      $('#q-pane-lehrplan').hidden = s2!=='lehrplan';
+      if(s2==='lehrplan') renderLehrplan();
+      window.scrollTo({top:0});
+    });
   }
   const bl=[...new Set(ALLES.map(q=>q.block))].sort((a,b)=>(a.startsWith('Tag')?1:0)-(b.startsWith('Tag')?1:0)||a.localeCompare(b,'de',{numeric:true}));
   const alt=bs.value;
@@ -2824,7 +2842,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-04-5';
+const FASSUNG = 'tt-2026-08-05-1';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
