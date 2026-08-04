@@ -399,7 +399,7 @@ function schaleBauen(){
         <div class="grid g2">
           <div>
             <div class="sec-h"><h2>Schwächste Themenfelder</h2><span class="note">nach Fehlern</span></div>
-            <div class="card" id="weak"></div>
+            <div class="card liste" id="weak"></div>
           </div>
           <div>
             <div class="sec-h"><h2>Letzte Durchgänge</h2></div>
@@ -804,12 +804,14 @@ function weak(){
   const zeige = alle.slice(0,5);
   $('#weak').innerHTML = zeige.map(v=>{
     const q=pct(v.ok,v.n);
-    return `<div class="feld k-${v.kat}">
-      <span class="sq" title="${esc(katKurz(v.kat))}"></span>
-      <span class="nm" title="${esc(katKurz(v.kat))} · ${esc(v.feld)}">${esc(v.feld)}</span>
-      <span class="bar"><i style="width:${q}%"></i></span>
-      <span class="qt" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %</span>
-      <span class="ct fehler">${v.n-v.ok}</span></div>`;
+    return `<div class="zeile k-${v.kat}">
+      <span class="pt"></span>
+      <span class="mitte">
+        <span class="nm">${esc(v.feld)}</span>
+        <span class="sub">${v.n-v.ok} von ${v.n} falsch</span>
+        <span class="bar"><i style="width:${q}%"></i></span>
+      </span>
+      <span class="wert tnum" style="color:${q<50?'var(--bad)':'var(--gold)'}">${q} %<em>richtig</em></span></div>`;
   }).join('');
 }
 
@@ -1825,14 +1827,16 @@ function fragenListe(){
   if((Q.status==='falsch'||Q.status==='mark') && TREFFER.length){
     const feld={};
     for(const q of TREFFER){ const f=themenfeld(q); (feld[f]=feld[f]||{f, kat:q.kategorie, n:0}); feld[f].n++; }
-    const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,6);
-    kopf.innerHTML = `<div class="card" style="margin-bottom:22px">
-      <div class="feld" style="border-bottom:1px solid var(--line)">
-        <span class="nm" style="font-weight:600;color:var(--ink)">Dichteste Themenfelder</span>
-        <span class="ct" style="width:auto">${Object.keys(feld).length} insgesamt</span></div>
-      ${felder.map(f=>`<div class="feld k-${f.kat}">
-        <span class="sq"></span><span class="nm">${esc(f.f)}</span>
-        <span class="ct fehler" style="width:auto">${f.n}</span></div>`).join('')}
+    const felder=Object.values(feld).sort((a,b)=>b.n-a.n).slice(0,5);
+    /* Die Einheit steht einmal im Kopf – sonst stünde „falsch“ fünfmal
+       untereinander und der Block schöbe die Fragen vom Bildschirm. */
+    const wort = Q.status==='mark' ? 'markiert' : 'falsch';
+    kopf.innerHTML = `<div class="card liste dichtkarte">
+      <div class="listenkopf">Dichteste Themenfelder<span>${esc(wort)} · ${Object.keys(feld).length} Felder</span></div>
+      ${felder.map(f=>`<div class="zeile k-${f.kat}">
+        <span class="pt"></span>
+        <span class="mitte"><span class="nm">${esc(f.f)}</span></span>
+        <span class="wert tnum">${f.n}</span></div>`).join('')}
     </div>`;
   } else kopf.innerHTML='';
 
@@ -1846,9 +1850,13 @@ function fragenListe(){
 
 /* Eine Frage als aufklappbarer Eintrag. */
 function poolEintrag(q, a){
+  /* In der Gruppenliste steht der Prüfungsteil schon in der Überschrift – die
+     rote Marke darüber war lauter als die Frage selbst. Statt des gefüllten
+     Häkchens genügt ein Punkt; die Frage bleibt auf zwei Zeilen, damit alle
+     Zeilen gleich hoch sind. */
   return `<details class="rev"><summary>
-    <span class="mk ${a?(a.ok?'r':'w'):'s'}">${a?(a.ok?'✓':'✕'):'·'}</span>
-    <span><span class="tagrow"><span class="tag k-${q.kategorie}" style="font-size:11px">${katKurz(q.kategorie)}</span></span>${stemHtml(q.frage)}</span></summary>
+    <span class="mkp ${a?(a.ok?'r':'w'):'s'}"></span>
+    <span class="revfrage">${stemHtml(q.frage)}</span></summary>
     <div class="body">
       ${artikelHtml(q, false)}
       <div class="opts">${q.optionen.map((o,j)=>
@@ -1874,13 +1882,16 @@ function gruppenliste(ziel, fragen, l, offenSet, mehrZaehler, schritt, gefiltert
      ist, um sie am Stück zu überblicken. Sonst bleibt der Abschnittsindex
      stehen und die Seite bleibt kurz – auch bei tausenden Fragen. */
   const kompakt = fragen.length > 40 && gruppen.length > 1;
-  box.innerHTML = '<div class="gebietblock">' + gruppen.map(({g,items})=>{
+  box.innerHTML = '<div class="gebietblock liste">' + gruppen.map(({g,items})=>{
     const auf = offenSet.has(g.id) || (gefiltert && !kompakt);
     const zeigt = Math.min(items.length, mehrZaehler[g.id] || schritt);
     return `<details class="gebiet" data-gruppe="${g.id}"${auf?' open':''}>
-      <summary>
-        <span class="name k-${g.id}">${esc(g.name)}</span>
-        <span class="zahl">${items.length} ${items.length===1?'Frage':'Fragen'}</span>
+      <summary class="zeile k-${g.id}">
+        <span class="pt"></span>
+        <span class="mitte">
+          <span class="nm">${esc(g.name)}</span>
+          <span class="sub">${items.length} ${items.length===1?'Frage':'Fragen'}</span>
+        </span>
         <span class="gpfeil"></span>
       </summary>
       <div class="gebiet-inhalt">
@@ -2002,15 +2013,17 @@ function quellenListe(){
     + (gefiltert? `<div style="margin-top:12px">${r.length} Treffer · <button class="link" id="qu-frei" style="font-size:14px">Filter zurücksetzen</button></div>`:'');
 
   const gruppen = QU_KATS.map(kat=>({kat, items:r.filter(q=>q.kategorie===kat.schluessel)})).filter(g=>g.items.length);
-  $('#qu-liste').innerHTML = gruppen.length ? '<div class="gebietblock">' + gruppen.map(g=>{
+  $('#qu-liste').innerHTML = gruppen.length ? '<div class="gebietblock liste">' + gruppen.map(g=>{
       const fehlt = g.items.filter(q=>!q.volltext).length;
       const seiten = g.items.reduce((a,q)=>a+(q.textseiten||0),0);
       const auf = (gefiltert && r.length<=60) || QU_OFFEN.has(g.kat.schluessel);
       return `<details class="gebiet" data-gebiet="${esc(g.kat.schluessel)}"${auf?' open':''}>
-        <summary>
-          <span class="name">${esc(g.kat.bezeichnung)}</span>
-          ${fehlt?`<span class="fehlt">${fehlt} ohne Volltext</span>`:''}
-          <span class="zahl">${g.items.length} Quellen${seiten?' · '+seiten.toLocaleString('de-DE')+' Seiten':''}</span>
+        <summary class="zeile">
+          <span class="mitte">
+            <span class="nm">${esc(g.kat.bezeichnung)}</span>
+            <span class="sub">${g.items.length} Quellen${seiten?' · '+seiten.toLocaleString('de-DE')+' Seiten':''}${
+              fehlt?` · <b class="fehlt">${fehlt} ohne Volltext</b>`:''}</span>
+          </span>
           <span class="gpfeil"></span>
         </summary>
         <div>${g.items.map(quellenZeile).join('')}</div>
@@ -2866,7 +2879,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-05-4';
+const FASSUNG = 'tt-2026-08-05-5';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
