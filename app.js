@@ -452,12 +452,12 @@ function schaleBauen(){
       </div>
 
       <div id="q-pane-fragen">
-        <div class="statusfilter" id="q-status"></div>
         <div class="suchzeile">
           <span class="such-lupe" aria-hidden="true"></span>
           <input type="search" id="q-search" placeholder="Stichwort, Norm, Begriff …">
           <button id="q-filter-auf" class="such-filter" aria-expanded="false" aria-label="Filter"><span aria-hidden="true"></span></button>
         </div>
+        <div class="statusfilter" id="q-status"></div>
         <div class="zahlzeile" id="q-zahl"></div>
         <div class="filterbox" id="q-filter" hidden>
           <label class="fld">Prüfungsteil<select id="q-kat"></select></label>
@@ -1671,7 +1671,13 @@ function lpZeichnen(){
   } else if(!oberWahl){
     const t = baum[katWahl] || {felder:{}};
     kls = t.kls; stand = t;
-    zeilen = Object.keys(t.felder).map(o=>({schluessel:o, kls:t.kls, ...t.felder[o]}));
+    const ober = Object.keys(t.felder);
+    /* Hat ein Prüfungsteil nur ein Oberfeld gleichen Namens (Grammatik,
+       Wortschatz, Textverständnis), führte der Zwischenschritt auf eine
+       einzige Zeile mit demselben Titel. Diese Stufe wird übersprungen. */
+    zeilen = (ober.length===1 && ober[0]===t.name)
+      ? Object.values(t.felder[ober[0]].felder).map(f=>({schluessel:f.name, kls:t.kls, blatt:true, ...f}))
+      : ober.map(o=>({schluessel:o, kls:t.kls, ...t.felder[o]}));
     titel = t.name || katWahl;
   } else {
     const t = baum[katWahl] || {felder:{}};
@@ -1806,7 +1812,10 @@ function fragenListe(){
   const st = STATUS.find(x=>x.id===Q.status) || STATUS[0];
   TREFFER = grund.filter(q=>st.test(q,l));
   const gefiltert = !!(suche||kat||block) || Q.status!=='alle';
-  $('#q-zahl').innerHTML = TREFFER.length
+  /* Ohne Einengung stünde dort „540 von 540 Fragen“ – eine Zeile ohne Aussage. */
+  const zahl=$('#q-zahl');
+  zahl.hidden = !gefiltert;
+  zahl.innerHTML = TREFFER.length
     ? `<b>${TREFFER.length}</b> von ${ALLES.length} Fragen${Q.status==='alle'?'':' · '+esc(st.name.toLowerCase())}${
         engText?' · '+esc(engText):''}`
     : 'Keine Frage in dieser Auswahl';
@@ -2857,7 +2866,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-05-3';
+const FASSUNG = 'tt-2026-08-05-4';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){

@@ -809,16 +809,20 @@ button.zeile{cursor:pointer}
   /* Die Markenzeile läuft bis an den Bildschirmrand – so ist erkennbar,
      dass sie sich schieben lässt, statt am Kartenrand abgeschnitten zu wirken. */
   #q-status{
-    gap:6px; margin-bottom:14px;
+    gap:7px; margin-bottom:26px;
     margin-left:calc(-1 * max(16px, env(safe-area-inset-left)));
     margin-right:calc(-1 * max(16px, env(safe-area-inset-right)));
     padding-left:max(16px, env(safe-area-inset-left));
     padding-right:max(16px, env(safe-area-inset-right));
   }
-  #q-status button{ min-height:34px; padding:0 12px; font-size:13.5px; gap:5px }
+  #q-status button{ min-height:34px; padding:0 13px; font-size:13.5px; gap:5px }
   #q-status button em{ font-size:11px }
-  .suchzeile{ min-height:48px; border-radius:12px }
-  #q-filter{ border-radius:12px; gap:12px }
+  /* Der Segmentschalter gehört zum Titel, Suche und Marken sind ein zweiter
+     Block, die Liste ein dritter – dazwischen jeweils spürbar Luft. */
+  #q-seg{ margin-bottom:26px }
+  #q-pane-fragen .suchzeile{ min-height:48px; border-radius:12px; margin-bottom:12px }
+  #q-zahl{ margin:0 2px 14px }
+  #q-filter{ border-radius:12px; gap:12px; margin-bottom:22px }
   #q-filter .fld{ flex:1 1 100% }
 }
 
@@ -1114,6 +1118,7 @@ button.zeile{cursor:pointer}
 .filterbox .link{flex:none;padding-bottom:12px}
 
 .zahlzeile{font-size:14px;color:var(--muted-2);margin:0 2px 16px;font-variant-numeric:tabular-nums}
+.zahlzeile[hidden]{display:none}
 .zahlzeile b{color:var(--ink);font-weight:700}
 
 /* "Mehr": Konto und Verwaltung auf einer Seite */
