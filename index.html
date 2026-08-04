@@ -162,6 +162,9 @@ tr:last-child td{border-bottom:0}
   box-shadow:0 1px 3px rgba(0,0,0,.1)}
 
 .grpliste{overflow:hidden;padding:0;margin-bottom:16px}
+/* Kopf der Auswahlfenster im Trainer */
+.wahlkopf{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.wahlkopf h2{flex:1;min-width:0;font-size:19px}
 .grp-zeile{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:none;
   border:0;border-bottom:1px solid var(--line-soft);padding:16px 20px;min-height:58px;cursor:pointer}
 @media (hover:hover){.grp-zeile:hover{background:var(--tint)}}
@@ -169,10 +172,7 @@ tr:last-child td{border-bottom:0}
 .grp-zeile .gw{flex:1;min-width:0;text-align:right;font-size:15.5px;color:var(--muted-2);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grp-zeile .gp{flex:none;width:9px;height:9px;border-right:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
-  transform:rotate(45deg) translate(-2px,-2px);transition:transform .16s}
-.grp-zeile.auf .gp{transform:rotate(225deg) translate(-2px,-2px)}
-.grp-zeile.auf{border-bottom-color:transparent}
-.grp-inhalt{padding:2px 20px 20px;border-bottom:1px solid var(--line-soft)}
+  transform:rotate(-45deg)}
 .grpliste > *:last-child{border-bottom:0}
 .umfangkarte .tr-lab{margin-bottom:14px}
 
@@ -451,11 +451,18 @@ button.zeile{cursor:pointer}
 
 /* Abdeckung des Lehrplans: Kopfzahlen und Zeilen in derselben Listenform */
 .lpkarte{overflow:hidden}
-.lp-kopf3{padding:18px 20px;border-bottom:1px solid var(--line)}
-.lp-titel{font-size:18px;font-weight:700;color:var(--ink);letter-spacing:-.015em}
-.lp-kennzahlen{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:12px}
-.lp-kennzahlen span{display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--muted-2)}
-.lp-kennzahlen b{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.lp-kopf3{padding:16px 20px 18px;border-bottom:1px solid var(--line)}
+.lp-zurueck{display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:0 0 10px;
+  font-size:13.5px;color:var(--muted-2)}
+.lp-zurueck .zp{width:8px;height:8px;flex:none;border-left:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
+  transform:rotate(45deg)}
+@media (hover:hover){.lp-zurueck:hover{color:var(--ink)}}
+.lp-titel{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.lp-zeile2{font-size:13.5px;color:var(--muted-2);margin-top:4px;font-variant-numeric:tabular-nums}
+.lp-abdeckung{display:flex;align-items:center;gap:12px;margin-top:14px}
+.lp-balken{flex:1;min-width:0;height:6px;background:var(--tint-2);border-radius:3px;overflow:hidden}
+.lp-balken i{display:block;height:100%;background:var(--ink)}
+.lp-abdeckung span{flex:none;font-size:12.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
 .lpzeile .nm{-webkit-line-clamp:2}
 .lpzeile .wert{min-width:52px}
 .zeile .gp{flex:none;width:9px;height:9px;border-right:1.8px solid #b6bcc4;border-bottom:1.8px solid #b6bcc4;
@@ -725,10 +732,11 @@ button.zeile{cursor:pointer}
   .feld.lp-zeile .ct{ order:5; width:auto; flex:1 1 auto; text-align:left; font-size:12.5px }
   .feld.lp-kopf .nm{ flex:1 1 100% }
   .lp-brot{ padding:12px 16px }
-  .lp-kopf3{ padding:16px 18px }
-  .lp-titel{ font-size:17px }
-  .lp-kennzahlen{ gap:10px 20px; margin-top:10px }
-  .lp-kennzahlen b{ font-size:16px }
+  .lp-kopf3{ padding:14px 18px 16px }
+  .lp-titel{ font-size:18px }
+  .lp-abdeckung{ flex-wrap:wrap; gap:8px 12px }
+  .lp-abdeckung .lp-balken{ flex:1 1 100%; order:2 }
+  .lp-abdeckung span{ order:1 }
   .paket{ padding:13px 16px; gap:10px; flex-wrap:wrap; min-height:56px }
   .paket .pn{ flex:1 1 auto } .paket .pb{ display:none }
   .paket .pt{ flex:1 1 100%; order:3; gap:14px; flex-wrap:wrap } .paket .pa{ order:2 }
@@ -765,15 +773,15 @@ button.zeile{cursor:pointer}
 
   .segmente{ margin-bottom:16px }
   .grp-zeile{ padding:15px 18px }
-  .grp-inhalt{ padding:2px 18px 18px }
   .umfangkarte{ padding:16px 18px 18px }
 
   /* Dieselbe Logik im Bestand: die Auswahl bleibt startbar, ohne ans
      Ende einer womöglich sehr langen Liste zu scrollen. */
   /* Kennungen statt Klassen: die allgemeinen Regeln stehen weiter unten in
      der Datei und würden sonst gewinnen. */
-  #q-status{ gap:7px; margin-bottom:16px }
-  #q-status button{ min-height:44px; border-radius:11px; padding:0 13px; font-size:14.5px }
+  #q-status{ gap:3px; padding:3px; margin-bottom:14px }
+  #q-status button{ min-height:40px; border-radius:9px; padding:0 8px; font-size:13.5px; gap:5px }
+  #q-status button em{ font-size:11px }
   .suchzeile #q-search{ min-height:48px; border-radius:12px }
   #q-filter-auf{ min-height:48px; border-radius:12px }
   #q-filter{ border-radius:12px; gap:12px }
@@ -1030,13 +1038,17 @@ button.zeile{cursor:pointer}
    Aus dem iPhone-Umbau übernommen – gilt auch am Schreibtisch
    ===================================================================== */
 /* Statusfilter unter "Fragen" – dieselbe Bildsprache wie die Chips im Trainer */
-.statusfilter{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 22px}
-.statusfilter button{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);
-  background:var(--paper);border-radius:2px;padding:10px 15px;font-size:15px;color:var(--text)}
-@media (hover:hover){.statusfilter button:hover{border-color:var(--muted-2)}}
-.statusfilter button.an{border-color:var(--ink);background:var(--tint);font-weight:700;
-  box-shadow:inset 0 0 0 1px var(--ink)}
-.statusfilter button em{font-style:normal;font-size:12.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
+/* Statusfilter: eine ruhige Zeile in derselben Form wie die Segmentschalter.
+   Fünf Kästchen mit Rahmen brachen vorher in zwei Reihen um. */
+.statusfilter{display:flex;gap:4px;background:var(--tint-2);border-radius:12px;padding:4px;
+  margin:0 0 16px;overflow-x:auto;scrollbar-width:none}
+.statusfilter::-webkit-scrollbar{display:none}
+.statusfilter button{flex:1 1 0;min-width:0;display:inline-flex;align-items:baseline;justify-content:center;
+  gap:6px;border:0;background:none;border-radius:9px;min-height:40px;padding:0 10px;
+  font-size:14.5px;color:var(--muted);white-space:nowrap}
+.statusfilter button.an{background:var(--paper);color:var(--ink);font-weight:700;
+  box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.statusfilter button em{font-style:normal;font-size:12px;color:var(--muted-2);font-variant-numeric:tabular-nums}
 .statusfilter button.an em{color:var(--muted)}
 /* Kompakte Suchzeile; die selteneren Filter liegen dahinter. */
 .suchzeile{display:flex;gap:10px;margin:0 0 14px}
