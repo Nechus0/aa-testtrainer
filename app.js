@@ -244,10 +244,16 @@ function poolSetzen(fachfragen, frTexte, frFragen){
   BY_ID = Object.fromEntries(ALLES.map(q=>[q.id,q]));
 }
 
-async function alleZeilen(tabelle, spalten){
+/* nutzer: nur die eigenen Zeilen holen. Administratoren dürfen laut
+   Rechtevergabe auch fremde Antworten und Durchgänge lesen – ohne diese
+   Einschränkung landeten sie im eigenen Fortschritt und verfälschten
+   Trefferquote, Serie und die Pop-up-Anlässe. */
+async function alleZeilen(tabelle, spalten, nutzer){
   const out=[]; const schritt=1000;
   for(let von=0;;von+=schritt){
-    const {data, error} = await sb.from(tabelle).select(spalten).range(von, von+schritt-1);
+    let f = sb.from(tabelle).select(spalten);
+    if(nutzer) f = f.eq('nutzer', nutzer);
+    const {data, error} = await f.range(von, von+schritt-1);
     if(error) throw error;
     out.push(...data);
     if(data.length < schritt) break;
@@ -277,9 +283,9 @@ async function ladeFragen(){
 async function ladeFortschritt(){
   try{
     const [a, d, m] = await Promise.all([
-      alleZeilen('antwort','frage_id,kat,gewaehlt,richtig,datum,ts'),
-      alleZeilen('durchgang','id,datum,ts,titel,n,richtig,quote,punkte,max_punkte,dauer,kats'),
-      alleZeilen('markierung','frage_id')
+      alleZeilen('antwort','frage_id,kat,gewaehlt,richtig,datum,ts', PROFIL.id),
+      alleZeilen('durchgang','id,datum,ts,titel,n,richtig,quote,punkte,max_punkte,dauer,kats', PROFIL.id),
+      alleZeilen('markierung','frage_id', PROFIL.id)
     ]);
     MARKIERT = new Set((m||[]).map(r=>r.frage_id));
     S.antworten = a.map(r=>({id:r.frage_id, kat:r.kat, gew:r.gewaehlt, ok:r.richtig, datum:r.datum, ts:r.ts}))
@@ -2854,6 +2860,11 @@ const restTage = () => Math.max(0, tagDiff(berlinTag(PRUEFUNG), berlinTag()));
 const zeitLang = iso => new Date(iso).toLocaleString('de-DE',
   {weekday:'short', day:'numeric', month:'long', year:'numeric',
    hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin'});
+/* In der Faktenzeile eines Pop-ups ist nur eine Zeile Platz – die lange
+   Fassung brach dort um und ließ die Uhrzeit allein stehen. */
+const zeitKurz = iso => new Date(iso).toLocaleString('de-DE',
+  {weekday:'short', day:'numeric', month:'short', year:'numeric',
+   hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin'});
 function vorTagen(iso){
   const n = tagDiff(berlinTag(), berlinTag(new Date(iso)));
   return n <= 0 ? 'heute' : n === 1 ? 'gestern' : 'vor '+n+' Tagen';
@@ -2944,7 +2955,7 @@ function popTraurig(letzterLogin, ohne){
     satz:'Johann ist sehr enttäuscht, dass du so lange nicht mehr trainiert hast.',
     unter:'Gestern stand kein einziger Durchgang in deinem Konto.',
     zeilen:[
-      ['Letzter Login', letzterLogin ? zeitLang(letzterLogin) : 'unbekannt',
+      ['Letzter Login', letzterLogin ? zeitKurz(letzterLogin) : 'unbekannt',
                         letzterLogin ? vorTagen(letzterLogin) : ''],
       ['Ohne Training', tageWort(ohne), 'Serie unterbrochen', 'var(--rot)'],
     ],
@@ -3006,6 +3017,7 @@ async function popupsNachAnmeldung(){
   if(popGezeigt('traurig', heuteB)) return;
   if(!S.sessions.length) return;                       /* wer nie begonnen hat, wird nicht getadelt */
   const tage = [...new Set(S.sessions.map(s=>s.datum))].sort();
+  if(tage.includes(heuteB)) return;                    /* heute schon trainiert – kein Tadel */
   if(tage.includes(tagePlus(heuteB, -1))) return;      /* gestern gab es einen Durchgang */
   const ohne = Math.max(1, tagDiff(heuteB, tage[tage.length-1]));
   if(popTraurig(PROFIL.zuletzt_aktiv, ohne))
@@ -3034,8 +3046,8 @@ async function renderPopups(){
         <div class="titelzeile"><h1>Pop-ups</h1></div>
         <p class="lead">Wann welche Einblendung tatsächlich erschienen ist. Diese Seite sehen nur Administratoren.</p>
       </div></div>
-      <div id="pop-log"><p class="small mute">wird geladen …</p></div>
-    </div>`;
+    </div>
+    <div class="wrap"><div id="pop-log"><p class="small mute">wird geladen …</p></div></div>`;
   $$('#v-popups [data-zurueck]').forEach(b => b.onclick = ()=>go('mehr'));
 
   const {data, error} = await sb.from('popup_ereignis')
@@ -3047,7 +3059,7 @@ async function renderPopups(){
     $('#pop-log').innerHTML = `<p class="small mute">Bisher wurde kein Pop-up angezeigt.</p>`;
     return;
   }
-  $('#pop-log').innerHTML = `<div class="pop-log">` + data.map(e=>{
+  $('#pop-log').innerHTML = `<div class="pop-log liste">` + data.map(e=>{
     const d = e.daten || {};
     const ctx = [
       d.resttage    != null ? d.resttage+' Tage bis zur Prüfung' : '',
@@ -3055,11 +3067,13 @@ async function renderPopups(){
       d.tage_ohne   != null ? d.tage_ohne+' Tage ohne Training'  : '',
       d.letzter_login ? 'letzter Login '+zeitLang(d.letzter_login) : '',
     ].filter(Boolean).join(' · ');
-    return `<div class="z">
-        <span class="marke" style="color:${POP_FARBE[e.art]||'inherit'}">${esc(POP_NAME[e.art]||e.art)}</span>
-        <span class="wer">${esc(e.profile?.name || 'unbekannt')}</span>
-        <span class="wann">${esc(zeitLang(e.gezeigt_am))}</span>
-        ${ctx ? `<span class="ctx">${esc(ctx)}</span>` : ''}
+    return `<div class="zeile">
+        <span class="mitte">
+          <span class="nm">${esc(e.profile?.name || 'unbekannt')}
+            <b class="marke" style="color:${POP_FARBE[e.art]||'inherit'}">${esc(POP_NAME[e.art]||e.art)}</b></span>
+          <span class="sub">${esc(zeitLang(e.gezeigt_am))}</span>
+          ${ctx ? `<span class="sub ctx">${esc(ctx)}</span>` : ''}
+        </span>
       </div>`;
   }).join('') + `</div>
     <p class="small mute" style="margin-top:12px">${data.length} Einblendung${data.length===1?'':'en'}${data.length>=200?' (nur die letzten 200)':''}.</p>`;
@@ -3122,7 +3136,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-05-6';
+const FASSUNG = 'tt-2026-08-10-1';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){

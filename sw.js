@@ -1,6 +1,6 @@
 /* Service Worker: haelt die App offline lauffaehig.
    Programmdateien kommen aus dem Zwischenspeicher, alles andere aus dem Netz. */
-const VERSION = 'tt-2026-08-09-7';
+const VERSION = 'tt-2026-08-10-1';
 const SCHALE = [
   './',
   './index.html',
