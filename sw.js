@@ -1,6 +1,6 @@
 /* Service Worker: haelt die App offline lauffaehig.
    Programmdateien kommen aus dem Zwischenspeicher, alles andere aus dem Netz. */
-const VERSION = 'tt-2026-08-05-6';
+const VERSION = 'tt-2026-08-09-7';
 const SCHALE = [
   './',
   './index.html',
@@ -10,6 +10,9 @@ const SCHALE = [
   './symbole/icon-192.png',
   './symbole/icon-512.png',
   './apple-touch-icon.png',
+  './bilder/johann-enttaeuscht.jpg',
+  './bilder/johann-stolz.jpg',
+  './bilder/auswaertiges-amt.jpg',
 ];
 
 self.addEventListener('install', (e) => {

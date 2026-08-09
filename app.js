@@ -46,7 +46,11 @@ const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const M  = s => document.querySelector((LAUF?LAUF.mount:'body')+' '+s);
 const MM = s => [...document.querySelectorAll((LAUF?LAUF.mount:'body')+' '+s)];
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const heute = ()=> new Date().toISOString().slice(0,10);
+/* Ein Tag ist der Berliner Kalendertag, nicht ein UTC-Tag: ein Durchgang um
+   1:30 Uhr zaehlt zum laufenden Tag und nicht zum vorigen. */
+const berlinTag = (d=new Date())=> new Intl.DateTimeFormat('en-CA',
+  {timeZone:'Europe/Berlin', year:'numeric', month:'2-digit', day:'2-digit'}).format(d);
+const heute = ()=> berlinTag();
 const pct = (a,b)=> b? Math.round(a/b*100) : 0;
 const mmss = s => { s=Math.max(0,Math.round(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
 const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
@@ -352,7 +356,7 @@ const HAUPT = [['dash','Übersicht'], ['train','Trainer'], ['fragen','Fragen'], 
 const engesGeraet = ()=> matchMedia('(max-width:720px)').matches;
 
 /* Unterseiten von "Mehr" färben den Reiter mit ein. */
-const UNTER_MEHR = ['mehr','konto','quellen','nutzer','tagesstand'];
+const UNTER_MEHR = ['mehr','konto','quellen','nutzer','tagesstand','popups'];
 function navBauen(){
   $('#nav').innerHTML = HAUPT.map(([v,t])=>{
     const an = v===ANSICHT || (v==='mehr' && UNTER_MEHR.includes(ANSICHT));
@@ -583,6 +587,7 @@ function go(v){
   if(v==='quellen') renderQuellen();
   if(v==='nutzer') renderNutzer();
   if(v==='konto') renderKonto();
+  if(v==='popups') renderPopups();
 }
 
 /* =====================================================================
@@ -1469,6 +1474,9 @@ async function auswerten(){
   LAUF.phase='ergebnis';
   renderErgebnis(alle, sess);
   sichern(sess, neue);
+  /* Die Serie ist mit diesem Block gewachsen – falls ein Meilenstein
+     erreicht ist, kommt Johann sofort, nicht erst beim naechsten Start. */
+  setTimeout(popupsNachBlock, 450);
 }
 
 function ring(p, farbe){
@@ -2672,7 +2680,8 @@ function renderMehr(){
     p:'Grundlage der täglich erzeugten Fragen. Eigene Dokumente kannst du aufnehmen und entfernen.',
     z: QU_ALLE.length ? QU_ALLE.length+' Dokumente' : 'aufnehmen und pflegen'});
   if(istAdmin()) kacheln.push(
-    {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'});
+    {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'},
+    {v:'popups',  t:'Pop-ups', p:'Wann Johann und der Endspurt erschienen sind – je Nutzer, Zeitpunkt und Anlass.', z:'nur für Administratoren'});
 
   $('#mehrgitter').innerHTML = kacheln.map(k=>
     `<button class="kachel" data-v="${k.v}"><h3>${esc(k.t)}</h3><p>${esc(k.p)}</p><span class="zahl">${k.z}</span></button>`).join('')
@@ -2823,6 +2832,239 @@ function fehlerseite(titel, text){
   $('#v-dash').innerHTML=`<div class="wrap page"><h1>${esc(titel)}</h1><p class="lead">${text}</p></div>`;
 }
 
+/* =====================================================================
+   POP-UPS
+   Drei Einblendungen, jede hoechstens einmal je Anlass:
+     traurig  – gestern kein einziger Durchgang, beim naechsten Anmelden
+     stolz    – Serie erreicht, sofort nach dem ersten Block des Tages
+     endspurt – zehn Tage oder weniger bis zur Pruefung, beim naechsten Oeffnen
+   Jede Anzeige wird in popup_ereignis vermerkt. Die Liste sehen nur
+   Administratoren unter Mehr > Pop-ups.
+   ===================================================================== */
+const POP_MEILEN = [5, 10, 15, 20, 25, 30];
+let POP_LOG = null;        /* {art: Set(schluessel)} – eigene Anzeigen */
+let POP_OFFEN = false;
+
+/* Ein Tag ist ein Berliner Kalendertag, nicht ein 24-Stunden-Block. */
+const tagePlus = (iso, n) => { const d = new Date(iso+'T12:00:00Z'); d.setUTCDate(d.getUTCDate()+n);
+                               return d.toISOString().slice(0,10); };
+const tagDiff  = (a, b) => Math.round((new Date(a+'T12:00:00Z') - new Date(b+'T12:00:00Z'))/864e5);
+const restTage = () => Math.max(0, tagDiff(berlinTag(PRUEFUNG), berlinTag()));
+
+const zeitLang = iso => new Date(iso).toLocaleString('de-DE',
+  {weekday:'short', day:'numeric', month:'long', year:'numeric',
+   hour:'2-digit', minute:'2-digit', timeZone:'Europe/Berlin'});
+function vorTagen(iso){
+  const n = tagDiff(berlinTag(), berlinTag(new Date(iso)));
+  return n <= 0 ? 'heute' : n === 1 ? 'gestern' : 'vor '+n+' Tagen';
+}
+const tageWort = n => n === 1 ? '1 Tag' : n+' Tage';
+
+async function popLogLaden(){
+  if(POP_LOG) return POP_LOG;
+  POP_LOG = {};
+  try{
+    const {data} = await sb.from('popup_ereignis').select('art,schluessel').eq('nutzer', PROFIL.id);
+    for(const r of (data||[])){
+      if(!POP_LOG[r.art]) POP_LOG[r.art] = new Set();
+      POP_LOG[r.art].add(String(r.schluessel));
+    }
+  }catch(e){}
+  return POP_LOG;
+}
+const popGezeigt = (art, s) => !!(POP_LOG && POP_LOG[art] && POP_LOG[art].has(String(s)));
+
+async function popVermerken(art, schluessel, daten){
+  if(!POP_LOG) POP_LOG = {};
+  if(!POP_LOG[art]) POP_LOG[art] = new Set();
+  POP_LOG[art].add(String(schluessel));       /* sofort sperren, auch ohne Netz */
+  try{
+    await sb.from('popup_ereignis').insert(
+      {nutzer:PROFIL.id, art, schluessel:String(schluessel), daten:daten||{}});
+  }catch(e){}
+}
+
+function popSchliessen(){
+  const el = $('#pop');
+  if(el) el.remove();
+  document.body.classList.remove('popOffen');
+  POP_OFFEN = false;
+}
+
+/* o = {bild, alt, pos, farbe, kicker, satz, unter, zeilen[[titel,wert,zusatz,farbe]],
+        knopf, flach, danach} */
+function popZeigen(o){
+  if(POP_OFFEN || LAUF && LAUF.phase !== 'ergebnis') return false;
+  POP_OFFEN = true;
+  const zeilen = o.zeilen.map(z =>
+    `<div class="pop-zeile"><span>${esc(z[0])}</span>
+       <strong${z[3]?` style="color:${z[3]}"`:''}>${esc(z[1])}${z[2]?`<em>${esc(z[2])}</em>`:''}</strong>
+     </div>`).join('');
+  const el = document.createElement('div');
+  el.id = 'pop';
+  el.className = 'pop-dim';
+  el.setAttribute('role','dialog');
+  el.setAttribute('aria-modal','true');
+  el.setAttribute('aria-label', o.satz);
+  el.innerHTML = `<div class="pop${o.flach?' flach':''}">
+      <button class="pop-zu" aria-label="Schließen">✕</button>
+      <figure><img src="${o.bild}" alt="${esc(o.alt||'')}" style="object-position:${o.pos||'50% 30%'}"></figure>
+      <div class="flagge"><i></i><i></i><i></i></div>
+      <div class="pop-inhalt">
+        <div class="pop-kicker" style="color:${o.farbe}">${esc(o.kicker)}</div>
+        <p class="pop-satz">${esc(o.satz)}</p>
+        <p class="pop-unter">${esc(o.unter)}</p>
+        <div class="pop-fakten">${zeilen}</div>
+        <button class="btn blk pop-los">${esc(o.knopf)}</button>
+        <p class="pop-fuss">Tippen zum Schließen</p>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  document.body.classList.add('popOffen');
+
+  const zu = (weiter) => {
+    popSchliessen();
+    document.removeEventListener('keydown', beiTaste);
+    if(weiter && o.danach) o.danach();
+  };
+  function beiTaste(e){ if(e.key === 'Escape') zu(false); }
+  el.querySelector('.pop-zu').onclick  = () => zu(false);
+  el.querySelector('.pop-los').onclick = () => zu(true);
+  el.onclick = e => { if(e.target === el) zu(false); };
+  document.addEventListener('keydown', beiTaste);
+  el.querySelector('.pop-zu').focus();
+  return true;
+}
+
+/* ---------- die drei Anlaesse ---------- */
+function popTraurig(letzterLogin, ohne){
+  return popZeigen({
+    bild:'bilder/johann-enttaeuscht.jpg', alt:'Johann Wadephul, enttäuscht', pos:'50% 26%',
+    farbe:'var(--rot)', kicker:'Der Minister hat es bemerkt',
+    satz:'Johann ist sehr enttäuscht, dass du so lange nicht mehr trainiert hast.',
+    unter:'Gestern stand kein einziger Durchgang in deinem Konto.',
+    zeilen:[
+      ['Letzter Login', letzterLogin ? zeitLang(letzterLogin) : 'unbekannt',
+                        letzterLogin ? vorTagen(letzterLogin) : ''],
+      ['Ohne Training', tageWort(ohne), 'Serie unterbrochen', 'var(--rot)'],
+    ],
+    knopf:'Weiter zum Training', danach:()=>go('train'),
+  });
+}
+
+function popStolz(serie){
+  const start = tagePlus(berlinTag(), -(serie-1));
+  const ziel  = POP_MEILEN.find(m => m > serie);
+  return popZeigen({
+    bild:'bilder/johann-stolz.jpg', alt:'Johann Wadephul, freundlich', pos:'50% 30%',
+    farbe:'var(--gold)', kicker:serie+' Tage in Folge',
+    satz:'Johann ist sehr stolz auf dich — du hast '+serie+' Tage in Folge trainiert.',
+    unter:'Der erste Block von heute sitzt — '+serie+' Tage ohne Lücke.',
+    zeilen:[
+      ['Serie', tageWort(serie), 'seit '+datumLang(start), '#1c6f45'],
+      ziel ? ['Nächstes Ziel', ziel+' Tage in Folge', 'noch '+tageWort(ziel-serie)]
+           : ['Prüfung', datumLang(berlinTag(PRUEFUNG)), 'in '+tageWort(restTage())],
+    ],
+    knopf:'Weitermachen',
+  });
+}
+
+function popEndspurt(rest){
+  const satz = rest === 0
+    ? 'Glückwunsch, du hast fleißig trainiert — heute ist es soweit.'
+    : 'Glückwunsch, du hast fleißig trainiert — jetzt geht es in den Endspurt.';
+  const unter = rest === 0 ? 'Das Auswahlverfahren ist heute.'
+              : rest === 1 ? 'Morgen ist das Auswahlverfahren.'
+              : 'Noch '+rest+' Tage bis zum Auswahlverfahren.';
+  const tage = [...new Set(S.sessions.map(s=>s.datum))].length;
+  return popZeigen({
+    bild:'bilder/auswaertiges-amt.jpg', alt:'Auswärtiges Amt', pos:'50% 46%', flach:true,
+    farbe:'var(--schwarz, #1c1c1c)', kicker:'Endspurt', satz, unter,
+    zeilen:[
+      ['Prüfung', datumLang(berlinTag(PRUEFUNG)),
+                  rest === 0 ? 'heute' : rest === 1 ? 'morgen' : 'in '+rest+' Tagen'],
+      ['Trainiert', tageWort(tage), S.antworten.length+' Fragen gelöst', '#1c6f45'],
+    ],
+    knopf:'Weiter zum Training', danach:()=>go('train'),
+  });
+}
+
+/* ---------- wann welches erscheint ---------- */
+async function popupsNachAnmeldung(){
+  await popLogLaden();
+  const heuteB = berlinTag();
+
+  /* Der Endspurt geht vor: er erscheint im ganzen Verfahren nur ein Mal.
+     Meldet sie sich erst acht Tage vorher an, steht dort auch die 8. */
+  const eSchluessel = berlinTag(PRUEFUNG);
+  const rest = restTage();
+  if(rest <= 10 && !popGezeigt('endspurt', eSchluessel)){
+    if(popEndspurt(rest)){ popVermerken('endspurt', eSchluessel, {resttage:rest}); return; }
+  }
+
+  /* Sonst: gestern nichts trainiert? Hoechstens einmal je Kalendertag. */
+  if(popGezeigt('traurig', heuteB)) return;
+  if(!S.sessions.length) return;                       /* wer nie begonnen hat, wird nicht getadelt */
+  const tage = [...new Set(S.sessions.map(s=>s.datum))].sort();
+  if(tage.includes(tagePlus(heuteB, -1))) return;      /* gestern gab es einen Durchgang */
+  const ohne = Math.max(1, tagDiff(heuteB, tage[tage.length-1]));
+  if(popTraurig(PROFIL.zuletzt_aktiv, ohne))
+    popVermerken('traurig', heuteB, {tage_ohne:ohne, letzter_login:PROFIL.zuletzt_aktiv});
+}
+
+/* Direkt nach dem Ergebnis eines Blocks – nicht erst beim naechsten Start. */
+function popupsNachBlock(){
+  if(!POP_LOG) return;
+  const serie = streak();
+  if(!POP_MEILEN.includes(serie) || popGezeigt('stolz', serie)) return;
+  if(popStolz(serie)) popVermerken('stolz', serie, {serie});
+}
+
+/* =====================================================================
+   POP-UPS: LISTE FUER ADMINISTRATOREN
+   ===================================================================== */
+const POP_NAME = {traurig:'Enttäuscht', stolz:'Stolz', endspurt:'Endspurt'};
+const POP_FARBE = {traurig:'var(--rot)', stolz:'var(--gold)', endspurt:'#1c1c1c'};
+
+async function renderPopups(){
+  $('#v-popups').innerHTML = `
+    <div class="wrap page">
+      <button class="seiten-zurueck" data-zurueck="1"><span class="zp"></span>Mehr</button>
+      <div class="row"><div style="flex:1;min-width:280px">
+        <div class="titelzeile"><h1>Pop-ups</h1></div>
+        <p class="lead">Wann welche Einblendung tatsächlich erschienen ist. Diese Seite sehen nur Administratoren.</p>
+      </div></div>
+      <div id="pop-log"><p class="small mute">wird geladen …</p></div>
+    </div>`;
+  $$('#v-popups [data-zurueck]').forEach(b => b.onclick = ()=>go('mehr'));
+
+  const {data, error} = await sb.from('popup_ereignis')
+    .select('art,schluessel,gezeigt_am,daten,profile(name)')
+    .order('gezeigt_am', {ascending:false}).limit(200);
+
+  if(error){ $('#pop-log').innerHTML = `<p class="hinweis schlecht">${esc(fehlertext(error))}</p>`; return; }
+  if(!data.length){
+    $('#pop-log').innerHTML = `<p class="small mute">Bisher wurde kein Pop-up angezeigt.</p>`;
+    return;
+  }
+  $('#pop-log').innerHTML = `<div class="pop-log">` + data.map(e=>{
+    const d = e.daten || {};
+    const ctx = [
+      d.resttage    != null ? d.resttage+' Tage bis zur Prüfung' : '',
+      d.serie       != null ? 'Serie '+d.serie+' Tage'           : '',
+      d.tage_ohne   != null ? d.tage_ohne+' Tage ohne Training'  : '',
+      d.letzter_login ? 'letzter Login '+zeitLang(d.letzter_login) : '',
+    ].filter(Boolean).join(' · ');
+    return `<div class="z">
+        <span class="marke" style="color:${POP_FARBE[e.art]||'inherit'}">${esc(POP_NAME[e.art]||e.art)}</span>
+        <span class="wer">${esc(e.profile?.name || 'unbekannt')}</span>
+        <span class="wann">${esc(zeitLang(e.gezeigt_am))}</span>
+        ${ctx ? `<span class="ctx">${esc(ctx)}</span>` : ''}
+      </div>`;
+  }).join('') + `</div>
+    <p class="small mute" style="margin-top:12px">${data.length} Einblendung${data.length===1?'':'en'}${data.length>=200?' (nur die letzten 200)':''}.</p>`;
+}
+
 async function starten(){
   $('#laden').classList.remove('weg');
   const {data:{session}} = await sb.auth.getSession();
@@ -2865,6 +3107,7 @@ async function starten(){
     toast('Bitte jetzt ein neues Passwort vergeben.');
   } else {
     go('dash');
+    popupsNachAnmeldung();
   }
   setInterval(countdown, 60000);
 }
