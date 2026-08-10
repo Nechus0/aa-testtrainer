@@ -1247,6 +1247,10 @@ body.popOffen{overflow:hidden}
   border-radius:50%;background:rgba(20,22,26,.5);color:#fff;font-size:16px;line-height:1;
   display:flex;align-items:center;justify-content:center;cursor:pointer}
 .pop figure{position:relative;height:330px;overflow:hidden;background:#0d1013;margin:0}
+/* Laedt das Bild nicht (Netz, Zwischenspeicher, noch nicht ausgeliefert),
+   faellt es samt Rahmen weg – sonst klaffte oben ein schwarzes Feld. */
+.pop.ohneBild figure{display:none}
+.pop.ohneBild .pop-inhalt{padding-top:26px}
 .pop.flach figure{height:238px}
 .pop figure img{width:100%;height:100%;object-fit:cover;display:block}
 .pop .flagge{height:3px;display:flex}

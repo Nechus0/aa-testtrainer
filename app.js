@@ -2919,7 +2919,8 @@ function popZeigen(o){
   el.setAttribute('aria-label', o.satz);
   el.innerHTML = `<div class="pop${o.flach?' flach':''}">
       <button class="pop-zu" aria-label="Schließen">✕</button>
-      <figure><img src="${o.bild}" alt="${esc(o.alt||'')}" style="object-position:${o.pos||'50% 30%'}"></figure>
+      <figure><img src="${o.bild}" alt="${esc(o.alt||'')}" style="object-position:${o.pos||'50% 30%'}"
+        onerror="this.closest('.pop').classList.add('ohneBild')"></figure>
       <div class="flagge"><i></i><i></i><i></i></div>
       <div class="pop-inhalt">
         <div class="pop-kicker" style="color:${o.farbe}">${esc(o.kicker)}</div>
@@ -3136,7 +3137,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-10-1';
+const FASSUNG = 'tt-2026-08-10-2';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
 
 async function dienstStarten(){
