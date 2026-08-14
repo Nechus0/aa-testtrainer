@@ -134,9 +134,13 @@ function putzen(wert, tiefe){
   if(tiefe > 6 || wert == null) return wert;
   if(typeof wert === 'string'){
     return wert
-      /* Einladungs-, Wiederherstellungs- und Zugangstoken im Abfrageteil */
-      .replace(/([?&#])(einladung|token|access_token|refresh_token|apikey|api_key|key|code|password|pw)=[^&#\s"']*/gi,
-               '$1$2=…')
+      /* Einladungs-, Wiederherstellungs- und Zugangstoken. Bewusst nicht nur
+         im Abfrageteil einer Adresse: ein Schlüssel kann auch mitten in einer
+         Meldung stehen. Die erste Fassung verlangte ein ?, & oder # davor und
+         ließ „(einladung=…" deshalb stehen – aufgefallen an einer echten
+         Probemeldung. */
+      .replace(/\b(einladung|token|access_token|refresh_token|apikey|api_key|key|code|password|passwort|pw)=[^\s"'&#]*/gi,
+               '$1=…')
       /* JSON Web Token, egal wo sie stehen */
       .replace(/eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]+/g, '…')
       /* E-Mail-Adressen */
@@ -3561,7 +3565,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-14-4';
+const FASSUNG = 'tt-2026-08-14-5';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
 /* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
 const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
@@ -3698,9 +3702,16 @@ async function nachAktualisierungSehen(melden){
       const fWartet = await dienstFassung(SW_REG.waiting);
       if(fWartet && fassungenGesehen().includes(fWartet)){
         SW_UEBERNAHME = true;
-        fehlerMelden('schleife',
-          'Übernahme verweigert: wartender Dienst bietet die bereits geladene Fassung ' + fWartet,
-          {schwere:'warnung', daten:{wartet:fWartet, eigene:FASSUNG}});
+        /* Bietet der Wartende genau die Fassung an, die gerade läuft, ist das
+           kein Pendeln, sondern ein überzähliger Dienst – etwa direkt nach
+           einer Auslieferung. Ablehnen ja, melden nein: das wäre Rauschen.
+           Gemeldet wird nur der echte Fall, eine ANDERE Fassung, die diese
+           Sitzung schon einmal hatte. */
+        if(fWartet !== FASSUNG){
+          fehlerMelden('schleife',
+            'Übernahme verweigert: Rückfall auf die früher geladene Fassung ' + fWartet,
+            {schwere:'warnung', daten:{wartet:fWartet, eigene:FASSUNG}});
+        }
         if(melden) toast('Du hast bereits die neueste Fassung.');
         return;
       }
