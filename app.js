@@ -79,6 +79,7 @@ function fehlerMelden(art, meldung, o){
     };
     FEHLER_WARTET.push(zeile);
     fehlerAbschicken();
+    sentryMelden(art, text, zeile.schwere, zeile.daten);
   }catch(e){ /* bewusst still */ }
 }
 
@@ -102,6 +103,132 @@ window.addEventListener('unhandledrejection', e=>{
   fehlerMelden('versprechen', (g && (g.message || g.error_description)) || String(g),
     {schwere:'warnung'});
 });
+
+/* =====================================================================
+   SENTRY
+   Der eigene Fehlerreport zeigt, DASS etwas schiefging. Sentry zeigt, WO:
+   es bringt den Aufrufweg mit und schickt von sich aus eine E-Mail, ohne
+   dass jemand die Anwendung öffnen muss. Beides zusammen ersetzt die früher
+   von aussen geplante Wache.
+
+   Zurückhaltung ist Absicht:
+   · Nachgeladen, nie blockierend. Ohne Netz oder mit fehlgeschlagener
+     Prüfsumme passiert schlicht nichts – die Anwendung merkt es nicht.
+   · Keine Sitzungsaufzeichnung, keine Ablaufverfolgung. Nur Fehler.
+   · sendDefaultPii bleibt aus, es wird nie eine E-Mail-Adresse gesetzt.
+     Als Kennung dient allein die Profilkennung, dieselbe pseudonyme UUID,
+     die ohnehin in der eigenen Datenbank steht.
+   · putzen() streicht vor dem Versand Token, Schlüssel und E-Mail-Adressen
+     aus allen Texten – auch aus den Wegmarken, in denen sonst die Adresse
+     eines fehlgeschlagenen Aufrufs mit ihrem Abfrageteil landet.
+   · Nur auf der veröffentlichten Adresse aktiv, nie im Prüflauf.
+   ===================================================================== */
+const SENTRY_DSN = 'https://b5fdf13c953ad5fb88337f18420e144f@o4511857977720832.ingest.de.sentry.io/4511908289642576';
+const SENTRY_QUELLE = 'https://browser.sentry-cdn.com/10.70.0/bundle.min.js';
+const SENTRY_PRUEFSUMME = 'sha384-79FhSq4eaPA7rdWwXh1Jly3F3Wvgq7HChMpaIIx7feYEZicWt/LnwIfTFTXSJao5';
+let SENTRY_DA = false;
+
+/* Was niemals hinausgehen darf. Greift auf jeden Text im Ereignis. */
+function putzen(wert, tiefe){
+  tiefe = tiefe || 0;
+  if(tiefe > 6 || wert == null) return wert;
+  if(typeof wert === 'string'){
+    return wert
+      /* Einladungs-, Wiederherstellungs- und Zugangstoken im Abfrageteil */
+      .replace(/([?&#])(einladung|token|access_token|refresh_token|apikey|api_key|key|code|password|pw)=[^&#\s"']*/gi,
+               '$1$2=…')
+      /* JSON Web Token, egal wo sie stehen */
+      .replace(/eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]+/g, '…')
+      /* E-Mail-Adressen */
+      .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '…@…');
+  }
+  if(Array.isArray(wert)) return wert.map(w=>putzen(w, tiefe+1));
+  if(typeof wert === 'object'){
+    const raus = {};
+    for(const k in wert){
+      if(/pass|token|secret|authorization|apikey|api_key/i.test(k)){ raus[k] = '…'; continue; }
+      raus[k] = putzen(wert[k], tiefe+1);
+    }
+    return raus;
+  }
+  return wert;
+}
+
+function sentryStarten(){
+  /* Auf dem eigenen Rechner und im Prüflauf bleibt es aus. Bewusst als
+     Ausschluss und nicht als Liste erlaubter Adressen: zöge die Anwendung
+     eines Tages auf eine eigene Domain um, meldete sie sonst still nichts
+     mehr, und niemand käme darauf, warum. */
+  if(/^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(location.hostname)) return;
+  if(location.protocol === 'file:') return;
+  if(SENTRY_DA || window.Sentry) return;
+  try{
+    const s = document.createElement('script');
+    s.src = SENTRY_QUELLE;
+    s.integrity = SENTRY_PRUEFSUMME;
+    s.crossOrigin = 'anonymous';
+    s.async = true;
+    s.onerror = ()=>{ /* kein Netz, keine Prüfsumme – dann eben nicht */ };
+    s.onload = ()=>{
+      try{
+        if(!window.Sentry) return;
+        Sentry.init({
+          dsn: SENTRY_DSN,
+          release: FASSUNG,
+          environment: 'produktion',
+          sendDefaultPii: false,
+          tracesSampleRate: 0,
+          beforeBreadcrumb(krume){
+            /* Wegmarken tragen Adressen mit Abfrageteil und Konsolentexte. */
+            if(krume && krume.data) krume.data = putzen(krume.data);
+            if(krume && krume.message) krume.message = putzen(krume.message);
+            return krume;
+          },
+          beforeSend(ereignis){
+            try{
+              if(ereignis.request) ereignis.request = putzen(ereignis.request);
+              if(ereignis.message) ereignis.message = putzen(ereignis.message);
+              if(ereignis.extra)   ereignis.extra   = putzen(ereignis.extra);
+              if(ereignis.exception && ereignis.exception.values)
+                ereignis.exception.values.forEach(v=>{ if(v.value) v.value = putzen(v.value); });
+            }catch(e){}
+            return ereignis;
+          },
+        });
+        SENTRY_DA = true;
+        sentryNutzerSetzen();
+      }catch(e){}
+    };
+    document.head.appendChild(s);
+  }catch(e){}
+}
+
+/* Nur die Profilkennung, nie Name oder E-Mail. */
+function sentryNutzerSetzen(){
+  if(!SENTRY_DA || !PROFIL) return;
+  try{
+    Sentry.setUser({id: PROFIL.id});
+    Sentry.setTag('rolle', PROFIL.rolle || 'unbekannt');
+  }catch(e){}
+}
+
+/* Was der Browser nicht von selbst auslöst, meldet die Anwendung.
+   Ausnahmen und abgelehnte Versprechen fängt Sentry schon selbst ab –
+   die würden hier ein zweites Mal ankommen. */
+function sentryMelden(art, meldung, schwere, daten){
+  if(!SENTRY_DA) return;
+  if(art === 'js' || art === 'versprechen') return;
+  try{
+    Sentry.withScope(bereich=>{
+      bereich.setTag('art', art);
+      bereich.setTag('ansicht', ANSICHT);
+      bereich.setLevel(schwere === 'schwer' ? 'error' : schwere === 'info' ? 'info' : 'warning');
+      if(daten) bereich.setContext('daten', putzen(daten));
+      Sentry.captureMessage(putzen(meldung));
+    });
+  }catch(e){}
+}
+sentryStarten();
 
 /* ---------- Helfer ---------- */
 const $  = (s,r=document)=>r.querySelector(s);
@@ -3390,6 +3517,7 @@ async function starten(){
   PROFIL = prof;
   /* Vor der Anmeldung gesammelte Fehler haben jetzt einen Nutzer. */
   fehlerAbschicken();
+  sentryNutzerSetzen();
 
   $('#anmeldung').classList.remove('on');
   $('#app').style.display='';
@@ -3433,7 +3561,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-14-3';
+const FASSUNG = 'tt-2026-08-14-4';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
 /* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
 const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
