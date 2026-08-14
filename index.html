@@ -1295,6 +1295,16 @@ body.popOffen{overflow:hidden}
   margin-left:9px;white-space:nowrap}
 .pop-log .nm{-webkit-line-clamp:2}
 .pop-log .ctx{margin-top:1px}
+
+/* Fehlerreport. Die Art steht als eigene Zeile ueber der Meldung: hinter dem
+   Text verschwand sie, sobald die Meldung die zweite Zeile fuellte und der
+   Beschnitt griff. Die Meldung selbst ist Text, nicht Titel - sie darf
+   kleiner sein als ein Name. */
+.fehlerliste .art{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;margin-bottom:3px}
+.fehlerliste .nm{font-size:14.5px;font-weight:600;-webkit-line-clamp:3}
+.fehlerliste .wert{align-self:flex-start;min-width:44px}
+.fehlerliste .pt{margin-top:3px}
 </style>
 </head>
 <body>
@@ -1336,6 +1346,7 @@ body.popOffen{overflow:hidden}
   <section id="v-nutzer" class="view"></section>
   <section id="v-konto" class="view"></section>
   <section id="v-popups" class="view"></section>
+  <section id="v-fehler" class="view"></section>
 </main>
 </div>
 

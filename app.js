@@ -40,6 +40,69 @@ let MARKIERT = new Set();   /* dauerhafte Markierungen, überdauern den Durchgan
 let LAUF = null, TICK = null;
 let ANSICHT = 'dash';
 
+/* =====================================================================
+   FEHLERAUFZEICHNUNG
+   Serverseitig sind nur beantwortete Anfragen sichtbar. Was im Browser
+   schiefgeht – eine Ausnahme, ein abgebrochener Ladeversuch, eine
+   Nachlade-Schleife – hinterließ bisher keine Spur und musste über
+   Nebenwirkungen in den Supabase-Protokollen rekonstruiert werden.
+
+   Drei Regeln, damit die Aufzeichnung nie selbst zum Problem wird:
+   1. Sie schreibt nur, wenn ein Profil geladen ist, und wartet sonst.
+   2. Gleiche Meldung wird je Sitzung einmal geschrieben, höchstens
+      FEHLER_MAX Zeilen – ein Dauerfehler flutet die Tabelle nicht.
+   3. Ein Fehler in der Aufzeichnung selbst wird verschluckt. Niemals
+      aus diesem Pfad heraus erneut melden.
+   Bewusst nicht gespeichert: Adresse mit Abfrageteil (dort stehen
+   Einladungs- und Wiederherstellungstoken), E-Mail, Passwörter.
+   ===================================================================== */
+const FEHLER_MAX = 12;
+let FEHLER_ANZAHL = 0, FEHLER_GESEHEN = new Set(), FEHLER_WARTET = [], FEHLER_LAEUFT = false;
+
+function fehlerMelden(art, meldung, o){
+  try{
+    o = o || {};
+    const text = String(meldung || '').slice(0, 500);
+    const kennung = art + '|' + text.slice(0, 120);
+    if(FEHLER_GESEHEN.has(kennung) || FEHLER_ANZAHL >= FEHLER_MAX) return;
+    FEHLER_GESEHEN.add(kennung);
+    FEHLER_ANZAHL++;
+    const zeile = {
+      art, meldung: text,
+      schwere: o.schwere || 'warnung',
+      quelle: o.quelle ? String(o.quelle).slice(0, 200) : null,
+      ansicht: ANSICHT,
+      fassung: FASSUNG,
+      /* Nur Betriebssystem und Browser, keine vollständige Kennung. */
+      geraet: (navigator.userAgent || '').slice(0, 180),
+      daten: o.daten || {},
+    };
+    FEHLER_WARTET.push(zeile);
+    fehlerAbschicken();
+  }catch(e){ /* bewusst still */ }
+}
+
+async function fehlerAbschicken(){
+  if(FEHLER_LAEUFT || !FEHLER_WARTET.length || !PROFIL) return;
+  FEHLER_LAEUFT = true;
+  const stapel = FEHLER_WARTET.splice(0, FEHLER_WARTET.length)
+                              .map(z=>({...z, nutzer:PROFIL.id}));
+  try{ await sb.from('client_fehler').insert(stapel); }
+  catch(e){ /* kein erneuter Versuch, keine Meldung über die Meldung */ }
+  FEHLER_LAEUFT = false;
+}
+
+/* Ausnahmen und abgelehnte Versprechen einsammeln. */
+window.addEventListener('error', e=>{
+  if(e && e.message) fehlerMelden('js', e.message,
+    {quelle: (e.filename||'') + ':' + (e.lineno||0) + ':' + (e.colno||0), schwere:'schwer'});
+});
+window.addEventListener('unhandledrejection', e=>{
+  const g = e && e.reason;
+  fehlerMelden('versprechen', (g && (g.message || g.error_description)) || String(g),
+    {schwere:'warnung'});
+});
+
 /* ---------- Helfer ---------- */
 const $  = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
@@ -362,7 +425,7 @@ const HAUPT = [['dash','Übersicht'], ['train','Trainer'], ['fragen','Fragen'], 
 const engesGeraet = ()=> matchMedia('(max-width:720px)').matches;
 
 /* Unterseiten von "Mehr" färben den Reiter mit ein. */
-const UNTER_MEHR = ['mehr','konto','quellen','nutzer','tagesstand','popups'];
+const UNTER_MEHR = ['mehr','konto','quellen','nutzer','tagesstand','popups','fehler'];
 function navBauen(){
   $('#nav').innerHTML = HAUPT.map(([v,t])=>{
     const an = v===ANSICHT || (v==='mehr' && UNTER_MEHR.includes(ANSICHT));
@@ -594,6 +657,7 @@ function go(v){
   if(v==='nutzer') renderNutzer();
   if(v==='konto') renderKonto();
   if(v==='popups') renderPopups();
+  if(v==='fehler') renderFehler();
 }
 
 /* =====================================================================
@@ -2687,7 +2751,8 @@ function renderMehr(){
     z: QU_ALLE.length ? QU_ALLE.length+' Dokumente' : 'aufnehmen und pflegen'});
   if(istAdmin()) kacheln.push(
     {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'},
-    {v:'popups',  t:'Pop-ups', p:'Wann Johann und der Endspurt erschienen sind – je Nutzer, Zeitpunkt und Anlass.', z:'nur für Administratoren'});
+    {v:'popups',  t:'Pop-ups', p:'Wann Johann und der Endspurt erschienen sind – je Nutzer, Zeitpunkt und Anlass.', z:'nur für Administratoren'},
+    {v:'fehler',  t:'Fehlerreport',  p:'Gebündelt, was im Browser der Nutzer schiefgeht: Ausnahmen, gescheiterte Ladeversuche, Nachlade-Schleifen.', z:'nur für Administratoren'});
 
   $('#mehrgitter').innerHTML = kacheln.map(k=>
     `<button class="kachel" data-v="${k.v}"><h3>${esc(k.t)}</h3><p>${esc(k.p)}</p><span class="zahl">${k.z}</span></button>`).join('')
@@ -3080,6 +3145,199 @@ async function renderPopups(){
     <p class="small mute" style="margin-top:12px">${data.length} Einblendung${data.length===1?'':'en'}${data.length>=200?' (nur die letzten 200)':''}.</p>`;
 }
 
+/* =====================================================================
+   FEHLERREPORT FUER ADMINISTRATOREN
+   Zusammengefasst statt Zeile für Zeile: gleiche Meldungen werden gebündelt.
+   Ein einzelner Vorfall, der zwanzigmal auslöst, soll nicht wie zwanzig
+   Vorfälle aussehen.
+   ===================================================================== */
+const FEHLER_NAME = {js:'Ausnahme', versprechen:'Versprechen', laden:'Laden',
+                     schleife:'Nachlade-Schleife', speichern:'Speichern'};
+const FEHLER_FARBE = {schwer:'var(--rot)', warnung:'var(--gold)', info:'var(--muted-2)'};
+const FEHLER_RANG  = {info:0, warnung:1, schwer:2};
+const FEHLER_ZEITRAEUME = [['7','7 Tage',7], ['30','30 Tage',30], ['alles','alles',null]];
+const FEHLER_SCHRITT = 8;
+let FEHLER_ALLE = null, FEHLER_ZEITRAUM = '7', FEHLER_MEHR = FEHLER_SCHRITT;
+
+/* Gerätekennung auf das Nötige eindampfen. */
+function fehlerGeraet(s){
+  return /iPhone|iPad/.test(s||'') ? 'iPhone'
+       : /Android/.test(s||'')     ? 'Android'
+       : /Mac/.test(s||'')         ? 'Mac' : 'anderes Gerät';
+}
+
+/* Meldungen, die sich nur in Zahlen unterscheiden, sind derselbe Vorfall. */
+function fehlerSchluessel(e){
+  const m = String(e.meldung||'').replace(/\d+/g, '#').replace(/\s+/g, ' ').trim().slice(0, 160);
+  return e.art + '|' + m;
+}
+
+async function renderFehler(){
+  $('#v-fehler').innerHTML = `
+    <div class="wrap page">
+      <button class="seiten-zurueck" data-zurueck="1"><span class="zp"></span>Mehr</button>
+      <div class="row"><div style="flex:1;min-width:280px">
+        <div class="titelzeile"><h1>Fehlerreport</h1></div>
+        <p class="lead">Was im Browser der Nutzer schiefgeht. Serverseitig ist davon nichts zu sehen.</p>
+      </div></div>
+    </div>
+    <div class="wrap"><div id="fehler-inhalt"><p class="small mute">wird geladen …</p></div></div>`;
+  $$('#v-fehler [data-zurueck]').forEach(b => b.onclick = ()=>go('mehr'));
+
+  const {data, error} = await sb.from('client_fehler')
+    .select('art,schwere,meldung,quelle,ansicht,fassung,geraet,daten,am,profile(name)')
+    .order('am', {ascending:false}).limit(1000);
+
+  if(error){ $('#fehler-inhalt').innerHTML = `<p class="hinweis schlecht">${esc(fehlertext(error))}</p>`; return; }
+  FEHLER_ALLE = data;
+  fehlerReportZeichnen();
+}
+
+function fehlerReportZeichnen(){
+  const ziel = $('#fehler-inhalt');
+  if(!ziel || !FEHLER_ALLE) return;
+
+  if(!FEHLER_ALLE.length){
+    ziel.innerHTML = `<div class="card pad"><p class="small" style="margin:0"><b style="color:var(--ink)">Nichts aufgezeichnet.</b>
+      Seit die Aufzeichnung läuft, ist in keinem Browser ein Fehler aufgetreten.</p></div>`;
+    return;
+  }
+
+  const tage = (FEHLER_ZEITRAEUME.find(z=>z[0]===FEHLER_ZEITRAUM)||[])[2];
+  const grenze = tage ? Date.now() - tage*864e5 : 0;
+  const menge = FEHLER_ALLE.filter(e => new Date(e.am).getTime() >= grenze);
+
+  const zahl = (s)=> menge.filter(e=>e.schwere===s).length;
+  const nutzer = new Set(menge.map(e=>e.profile?.name||'unbekannt'));
+  const neuster = FEHLER_ALLE[0];
+
+  /* Bündeln */
+  const gruppen = new Map();
+  menge.forEach(e=>{
+    const k = fehlerSchluessel(e);
+    let g = gruppen.get(k);
+    if(!g){ g = {art:e.art, schwere:e.schwere, meldung:e.meldung, n:0,
+                 nutzer:new Set(), ansichten:new Set(), fassungen:new Set(),
+                 geraete:new Set(), varianten:new Set(),
+                 zuerst:e.am, zuletzt:e.am, quelle:e.quelle};
+            gruppen.set(k, g); }
+    g.n++;
+    g.varianten.add(e.meldung);
+    g.nutzer.add(e.profile?.name||'unbekannt');
+    if(e.ansicht) g.ansichten.add(e.ansicht);
+    if(e.fassung) g.fassungen.add(e.fassung);
+    g.geraete.add(fehlerGeraet(e.geraet));
+    if(e.am < g.zuerst) g.zuerst = e.am;
+    if(e.am > g.zuletzt) g.zuletzt = e.am;
+    if(FEHLER_RANG[e.schwere] > FEHLER_RANG[g.schwere]) g.schwere = e.schwere;
+  });
+  const liste = [...gruppen.values()].sort((a,b)=>
+    (FEHLER_RANG[b.schwere]-FEHLER_RANG[a.schwere]) || (b.n-a.n) ||
+    (new Date(b.zuletzt)-new Date(a.zuletzt)));
+
+  const filter = FEHLER_ZEITRAEUME.map(z=>{
+    const g = z[2] ? Date.now() - z[2]*864e5 : 0;
+    const n = FEHLER_ALLE.filter(e=>new Date(e.am).getTime()>=g).length;
+    return `<button data-fz="${z[0]}" class="${z[0]===FEHLER_ZEITRAUM?'an':''}">${
+      esc(z[1])}<em>${n}</em></button>`;
+  }).join('');
+
+  const zeitraumWort = FEHLER_ZEITRAUM==='alles' ? 'insgesamt'
+                     : 'in ' + FEHLER_ZEITRAUM + ' Tagen';
+
+  ziel.innerHTML = `
+    <div class="statusfilter" id="fehler-filter">${filter}</div>
+
+    <div class="grid g4" style="margin-bottom:22px">
+      <div class="card kpi"><div class="lab">Schwer</div><div class="val">${zahl('schwer')}</div>
+        <div class="sub">${esc(zeitraumWort)}</div></div>
+      <div class="card kpi"><div class="lab">Warnungen</div><div class="val">${zahl('warnung')}</div>
+        <div class="sub">${esc(zeitraumWort)}</div></div>
+      <div class="card kpi"><div class="lab">Betroffene</div><div class="val">${menge.length?nutzer.size:0}</div>
+        <div class="sub">${menge.length?(nutzer.size===1?'ein Konto':'Konten'):'niemand'}</div></div>
+      <div class="card kpi"><div class="lab">Zuletzt</div><div class="val" style="font-size:22px;letter-spacing:-.01em">${
+        neuster ? esc(vorTagen(neuster.am)) : '–'}</div>
+        <div class="sub">${neuster ? esc(FEHLER_NAME[neuster.art]||neuster.art) : 'nichts'}</div></div>
+    </div>
+
+    ${zahl('schwer')
+      ? `<div class="hinweis fehler" style="margin-bottom:24px"><b>${zahl('schwer')} schwere
+           ${zahl('schwer')===1?'Meldung':'Meldungen'}.</b> Bitte die oberste Gruppe zuerst ansehen.</div>`
+      : `<div class="card pad" style="margin-bottom:24px"><p class="small" style="margin:0">
+           <b style="color:var(--ink)">Keine schweren Fehler ${esc(zeitraumWort)}.</b>
+           ${menge.length? 'Nur Warnungen – die App lief für die Nutzer weiter.' : 'Nichts aufgezeichnet.'}</p></div>`}
+
+    <div class="sec" style="margin-top:0">
+      <div class="sec-h"><h2>Wiederkehrende Meldungen</h2><span class="note">${
+        liste.length===1?'1 Gruppe':liste.length+' Gruppen'}</span></div>
+      ${liste.length ? `<div class="card liste pop-log fehlerliste">${liste.slice(0, 20).map(g=>{
+        const wo = [...g.ansichten].join(', ');
+        const rand = [g.nutzer.size + (g.nutzer.size===1?' Konto':' Konten'),
+                      [...g.geraete].join(', '),
+                      wo ? 'Ansicht '+wo : '',
+                      [...g.fassungen].join(', ')].filter(Boolean).join(' · ');
+        const spanne = g.n===1 ? zeitKurz(g.zuletzt)
+                     : 'zuerst '+zeitKurz(g.zuerst)+' · zuletzt '+zeitKurz(g.zuletzt);
+        /* Unterscheiden sich die Meldungen der Gruppe nur in Zahlen, wäre eine
+           davon als Überschrift irreführend – dann steht das Muster da. */
+        const titel = g.varianten.size > 1
+          ? String(g.meldung).replace(/\d+/g, '…')
+          : g.meldung;
+        return `<div class="zeile">
+            <span class="pt" style="--kc:${FEHLER_FARBE[g.schwere]||'var(--muted)'}"></span>
+            <span class="mitte">
+              <span class="art" style="color:${FEHLER_FARBE[g.schwere]||'inherit'}">${
+                esc(FEHLER_NAME[g.art]||g.art)}</span>
+              <span class="nm">${esc(titel)}</span>
+              <span class="sub">${esc(spanne)}</span>
+              <span class="sub ctx">${esc(rand)}</span>
+              ${g.quelle ? `<span class="sub ctx">${esc(g.quelle)}</span>` : ''}
+            </span>
+            <span class="wert">${g.n}<em>Mal</em></span>
+          </div>`;
+      }).join('')}</div>${liste.length>20
+        ? `<p class="small mute" style="margin-top:10px">Nur die 20 auffälligsten Gruppen.</p>` : ''}`
+      : `<div class="card pad"><p class="small mute" style="margin:0">In diesem Zeitraum nichts.</p></div>`}
+    </div>
+
+    ${menge.length ? `<div class="sec">
+      <div class="sec-h"><h2>Zuletzt aufgezeichnet</h2><span class="note">neueste zuerst</span></div>
+      <div class="card liste pop-log fehlerliste">${menge.slice(0, FEHLER_MEHR).map(e=>{
+        const zusatz = [e.profile?.name || 'unbekannt', fehlerGeraet(e.geraet),
+                        e.ansicht ? 'Ansicht '+e.ansicht : '', e.fassung || ''].filter(Boolean).join(' · ');
+        return `<div class="zeile">
+            <span class="pt" style="--kc:${FEHLER_FARBE[e.schwere]||'var(--muted)'}"></span>
+            <span class="mitte">
+              <span class="art" style="color:${FEHLER_FARBE[e.schwere]||'inherit'}">${
+                esc(FEHLER_NAME[e.art]||e.art)}</span>
+              <span class="nm">${esc(e.meldung)}</span>
+              <span class="sub">${esc(zeitKurz(e.am))}</span>
+              <span class="sub ctx">${esc(zusatz)}</span>
+            </span>
+          </div>`;
+      }).join('')}
+      ${menge.length > FEHLER_MEHR
+        ? `<div class="morerow"><button class="link" id="fehler-mehr">Weitere ${
+             Math.min(FEHLER_SCHRITT, menge.length-FEHLER_MEHR)} von ${
+             menge.length-FEHLER_MEHR} anzeigen</button></div>`
+        : (FEHLER_MEHR > FEHLER_SCHRITT
+            ? `<div class="morerow"><button class="link" id="fehler-weniger">Wieder einklappen</button></div>`
+            : '')}</div>
+      <p class="small mute" style="margin-top:10px">${
+        menge.length===1?'1 Eintrag':menge.length+' Einträge'} ${esc(zeitraumWort)}.</p>
+    </div>` : ''}`;
+
+  $$('#fehler-filter button').forEach(b => b.onclick = ()=>{
+    FEHLER_ZEITRAUM = b.dataset.fz;
+    FEHLER_MEHR = FEHLER_SCHRITT;
+    fehlerReportZeichnen();
+  });
+  const mehr = $('#fehler-mehr');
+  if(mehr) mehr.onclick = ()=>{ FEHLER_MEHR += FEHLER_SCHRITT; fehlerReportZeichnen(); };
+  const wen = $('#fehler-weniger');
+  if(wen) wen.onclick = ()=>{ FEHLER_MEHR = FEHLER_SCHRITT; fehlerReportZeichnen(); };
+}
+
 async function starten(){
   $('#laden').classList.remove('weg');
   const {data:{session}} = await sb.auth.getSession();
@@ -3099,6 +3357,8 @@ async function starten(){
     return;
   }
   PROFIL = prof;
+  /* Vor der Anmeldung gesammelte Fehler haben jetzt einen Nutzer. */
+  fehlerAbschicken();
 
   $('#anmeldung').classList.remove('on');
   $('#app').style.display='';
@@ -3106,7 +3366,11 @@ async function starten(){
   navBauen();
 
   const ok = await ladeFragen();
-  if(!ok){ fehlerseite('Keine Verbindung', 'Die Fragen konnten nicht geladen werden und liegen auch nicht im Zwischenspeicher. Bitte später erneut versuchen.'); return; }
+  if(!ok){
+    fehlerMelden('laden', 'Fragen konnten nicht geladen werden, kein Zwischenspeicher vorhanden',
+      {schwere:'schwer'});
+    fehlerseite('Keine Verbindung', 'Die Fragen konnten nicht geladen werden und liegen auch nicht im Zwischenspeicher. Bitte später erneut versuchen.'); return;
+  }
   await ladeFortschritt();
   warteschlangeAbarbeiten();
   sb.rpc('aktiv_melden').then(()=>{}, ()=>{});
@@ -3137,21 +3401,119 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-10-2';
-let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false;
+const FASSUNG = 'tt-2026-08-14-2';
+let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
+/* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
+const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+
+/* ---------- Bremse gegen Nachlade-Schleifen ----------
+   SW_NEULADEN allein genügt nicht: die Variable stirbt mit der Seite und
+   steht nach dem Neuladen wieder auf false. Übernimmt bei jedem Start ein
+   neuer Dienst, lädt die App endlos nach – am 13.08.2026 fünfzehnmal in
+   75 Sekunden. Der Zähler liegt deshalb im sessionStorage und überlebt das
+   Neuladen; mehr als NACHLADE_MAX Versuche in NACHLADE_FENSTER werden
+   verweigert und festgehalten. */
+const NACHLADE_SCHLUESSEL = 'aa_nachladen_v1';
+const NACHLADE_MAX = 2;
+const NACHLADE_FENSTER = 90 * 1000;
+
+function nachladeStand(){
+  try{
+    const s = JSON.parse(sessionStorage.getItem(NACHLADE_SCHLUESSEL) || 'null');
+    if(!s || Date.now() - s.erstes > NACHLADE_FENSTER) return {n:0, erstes:Date.now()};
+    return s;
+  }catch(e){ return {n:0, erstes:Date.now()}; }
+}
+
+/* Gibt true, wenn neu geladen werden darf. */
+function nachladenErlaubt(){
+  const s = nachladeStand();
+  if(s.n >= NACHLADE_MAX) return false;
+  try{ sessionStorage.setItem(NACHLADE_SCHLUESSEL,
+        JSON.stringify({n:s.n + 1, erstes:s.erstes})); }catch(e){}
+  return true;
+}
+
+/* ---------- Rückfall-Sperre ----------
+   Ein Auslieferungsnetz kann für kurze Zeit zwei Fassungen derselben Datei
+   parallel vorhalten. Dann findet jede Prüfung einen „neuen" Dienst, der in
+   Wahrheit die Fassung von vorhin ist – und die App pendelt zwischen beiden.
+   Deshalb merkt sich die Sitzung, welche Fassungen sie schon hatte, und
+   verweigert die Übernahme einer bereits gesehenen. */
+const FASSUNGEN_SCHLUESSEL = 'aa_fassungen_v1';
+
+function fassungenGesehen(){
+  try{ const l = JSON.parse(sessionStorage.getItem(FASSUNGEN_SCHLUESSEL) || '[]');
+       return Array.isArray(l) ? l : []; }catch(e){ return []; }
+}
+
+function fassungMerken(f){
+  if(!f) return;
+  try{
+    const l = fassungenGesehen();
+    if(!l.includes(f)){ l.push(f); sessionStorage.setItem(FASSUNGEN_SCHLUESSEL, JSON.stringify(l.slice(-8))); }
+  }catch(e){}
+}
+fassungMerken(FASSUNG);
+
+/* Fragt einen wartenden Dienst, welche Fassung er ausliefert. Ältere Dienste
+   kennen die Frage nicht – dann kommt null zurück und es bleibt beim alten
+   Verhalten. */
+function dienstFassung(arbeiter, frist){
+  return new Promise((fertig)=>{
+    try{
+      const kanal = new MessageChannel();
+      let erledigt = false;
+      const uhr = setTimeout(()=>{ if(!erledigt){ erledigt = true; fertig(null); } }, frist || 1500);
+      kanal.port1.onmessage = (e)=>{
+        if(erledigt) return;
+        erledigt = true; clearTimeout(uhr);
+        fertig((e.data && e.data.fassung) || null);
+      };
+      arbeiter.postMessage({typ:'fassung'}, [kanal.port2]);
+    }catch(e){ fertig(null); }
+  });
+}
+
+/* Was passiert, wenn ein neuer Dienst die Seite übernimmt. Als benannte
+   Funktion, damit sie einzeln geprüft werden kann. Gibt zurück, was sie
+   getan hat: 'lauf', 'gebremst' oder 'nachladen'. */
+function beiDienstwechsel(){
+  if(SW_NEULADEN) return 'schon';
+  /* Beim ersten Besuch übernimmt der Dienst eine Seite, die vorher keine
+     Steuerung hatte. Dafür muss nichts neu geladen werden – die Dateien im
+     Zwischenspeicher sind genau die, die gerade laufen. Vorher kostete jeder
+     erste Besuch ein Nachladen und verbrauchte einen Zähler der Bremse.
+     Hat die Seite die Übernahme selbst verlangt, wird trotzdem geladen: dann
+     liegt eine andere Fassung bereit als die laufende. */
+  if(!SW_HATTE_STEUERUNG && !SW_UEBERNAHME) return 'erstmalig';
+  /* Niemals mitten im Durchgang neu laden: die Antworten stehen bis zur
+     Auswertung nur im Arbeitsspeicher und wären sonst verloren. */
+  if(LAUF){ SW_SPAETER = true; return 'lauf'; }
+  if(!nachladenErlaubt()){
+    /* Die App bleibt stehen, statt weiter zu flackern. Sie ist benutzbar –
+       nur die neue Fassung greift erst beim nächsten Start. */
+    const s = nachladeStand();
+    fehlerMelden('schleife',
+      'Nachladen nach Dienstwechsel abgebrochen: ' + s.n + ' Versuche in ' +
+      Math.round((Date.now() - s.erstes)/1000) + ' s',
+      {schwere:'schwer', daten:{versuche:s.n}});
+    if(!SW_GEMELDET){
+      SW_GEMELDET = true;
+      toast('Die neue Fassung greift beim nächsten Start.');
+    }
+    return 'gebremst';
+  }
+  SW_NEULADEN = true;
+  location.reload();
+  return 'nachladen';
+}
 
 async function dienstStarten(){
   if(!('serviceWorker' in navigator)) return;
   try{
     SW_REG = await navigator.serviceWorker.register('sw.js', {updateViaCache:'none'});
-    navigator.serviceWorker.addEventListener('controllerchange', ()=>{
-      if(SW_NEULADEN) return;
-      /* Niemals mitten im Durchgang neu laden: die Antworten stehen bis zur
-         Auswertung nur im Arbeitsspeicher und wären sonst verloren. */
-      if(LAUF){ SW_SPAETER = true; return; }
-      SW_NEULADEN = true;
-      location.reload();
-    });
+    navigator.serviceWorker.addEventListener('controllerchange', beiDienstwechsel);
     nachAktualisierungSehen();
     document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) nachAktualisierungSehen(); });
     setInterval(nachAktualisierungSehen, 30*60*1000);
@@ -3166,7 +3528,24 @@ async function nachAktualisierungSehen(melden){
   try{
     await SW_REG.update();
     const neu = SW_REG.waiting || SW_REG.installing;
-    if(SW_REG.waiting){
+    /* Die Übernahme wird je Seitenleben nur einmal angestoßen. Vorher konnte
+       jeder Aufruf – Start, Rückkehr in den Vordergrund, Menüaufbau, Halbstunden-
+       takt – einen weiteren Dienstwechsel und damit ein weiteres Nachladen
+       auslösen. Bei „melden" (Knopf im Konto) bleibt es auf Wunsch möglich. */
+    if(SW_REG.waiting && (melden || !SW_UEBERNAHME)){
+      /* Rückfall-Sperre: bietet der wartende Dienst eine Fassung an, die diese
+         Sitzung schon hatte, wird nicht übernommen. */
+      const fWartet = await dienstFassung(SW_REG.waiting);
+      if(fWartet && fassungenGesehen().includes(fWartet)){
+        SW_UEBERNAHME = true;
+        fehlerMelden('schleife',
+          'Übernahme verweigert: wartender Dienst bietet die bereits geladene Fassung ' + fWartet,
+          {schwere:'warnung', daten:{wartet:fWartet, eigene:FASSUNG}});
+        if(melden) toast('Du hast bereits die neueste Fassung.');
+        return;
+      }
+      fassungMerken(fWartet);
+      SW_UEBERNAHME = true;
       SW_REG.waiting.postMessage({typ:'uebernehmen'});
       if(melden) toast('Neue Fassung wird geladen …');
     }else if(melden){
