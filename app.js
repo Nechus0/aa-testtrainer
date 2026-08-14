@@ -1588,11 +1588,21 @@ function renderFrage(){
      das Bild sofort weiter – man sah die eigene Antwort nur bei der letzten
      Frage und wusste nicht, ob der Tipp angekommen war. */
   MM('.opts .opt').forEach(b=>b.onclick=()=>{
-    if(WEITER_TIMER) return;                       /* ein Tipp genügt */
+    /* Ein zweiter Tipp innerhalb der Pause gilt der Frage, die noch zu sehen
+       ist – er ändert die Wahl. Früher wurde er verworfen; weil die Anzeige
+       kurz darauf weiterrückte, hielt man die Frage für beantwortet, obwohl
+       nichts gespeichert war. Genau so entstand „24 von 25 beantwortet“
+       nach dem Durchklicken aller 25 Fragen.
+       Die laufende Pause wird dabei NICHT neu gestartet: sonst käme, wer
+       schneller tippt als die Pause lang ist, nie zur nächsten Frage. */
     LAUF.antw[q.id] = +b.dataset.o;
+    if(WEITER_TIMER){
+      MM('.opts .opt').forEach(x=>x.classList.toggle('sel', x===b));
+      return;
+    }
     if(LAUF.i >= n-1){ renderFrage(); return; }
     MM('.opts .opt').forEach(x=>x.classList.toggle('sel', x===b));
-    WEITER_TIMER = setTimeout(()=>{ WEITER_TIMER=null; LAUF.i++; renderFrage(); }, 280);
+    WEITER_TIMER = setTimeout(()=>{ WEITER_TIMER = null; LAUF.i++; renderFrage(); }, 280);
   });
   MM('.pg').forEach(b=>b.onclick=()=>{ LAUF.i=+b.dataset.i; renderFrage(); });
   M('#mark').onclick=()=>{
@@ -3565,7 +3575,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-14-5';
+const FASSUNG = 'tt-2026-08-14-6';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
 /* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
 const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
