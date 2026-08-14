@@ -429,7 +429,9 @@ const UNTER_MEHR = ['mehr','konto','quellen','nutzer','tagesstand','popups','feh
 function navBauen(){
   $('#nav').innerHTML = HAUPT.map(([v,t])=>{
     const an = v===ANSICHT || (v==='mehr' && UNTER_MEHR.includes(ANSICHT));
-    return `<button data-v="${v}" class="${an?'on':''}">${t}</button>`;
+    /* Der Punkt an „Mehr" führt zum Fehlerreport – nur für Administratoren. */
+    const neu = v==='mehr' && FEHLER_NEU > 0;
+    return `<button data-v="${v}" class="${an?'on':''}${neu?' hatneu':''}">${t}</button>`;
   }).join('');
   $('#navpop').innerHTML='';
   $$('#nav button[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
@@ -2752,7 +2754,9 @@ function renderMehr(){
   if(istAdmin()) kacheln.push(
     {v:'nutzer',  t:'Nutzer',  p:'Konten, Rollen und Einladungslinks. Neue Zugänge entstehen ausschließlich über einen Link.', z:'nur für Administratoren'},
     {v:'popups',  t:'Pop-ups', p:'Wann Johann und der Endspurt erschienen sind – je Nutzer, Zeitpunkt und Anlass.', z:'nur für Administratoren'},
-    {v:'fehler',  t:'Fehlerreport',  p:'Gebündelt, was im Browser der Nutzer schiefgeht: Ausnahmen, gescheiterte Ladeversuche, Nachlade-Schleifen.', z:'nur für Administratoren'});
+    {v:'fehler',  t:'Fehlerreport',  p:'Gebündelt, was im Browser der Nutzer schiefgeht: Ausnahmen, gescheiterte Ladeversuche, Nachlade-Schleifen.',
+     z: FEHLER_NEU ? (FEHLER_NEU===1 ? '1 neue schwere Meldung' : FEHLER_NEU+' neue schwere Meldungen')
+                   : 'nur für Administratoren'});
 
   $('#mehrgitter').innerHTML = kacheln.map(k=>
     `<button class="kachel" data-v="${k.v}"><h3>${esc(k.t)}</h3><p>${esc(k.p)}</p><span class="zahl">${k.z}</span></button>`).join('')
@@ -3159,6 +3163,31 @@ const FEHLER_ZEITRAEUME = [['7','7 Tage',7], ['30','30 Tage',30], ['alles','alle
 const FEHLER_SCHRITT = 8;
 let FEHLER_ALLE = null, FEHLER_ZEITRAUM = '7', FEHLER_MEHR = FEHLER_SCHRITT;
 
+/* ---------- Hinweis ohne Wächter von aussen ----------
+   Früher fragte eine geplante Aufgabe stündlich nach neuen schweren Fehlern.
+   Das lag ausserhalb des Programms und war damit eine zweite Stelle, die
+   gepflegt werden muss. Jetzt trägt die Anwendung den Hinweis selbst: beim
+   Start fragt sie einmal, wie viele schwere Meldungen seit dem letzten
+   Hinsehen dazugekommen sind. Der Zeiger dafür liegt in fehler_wache und wird
+   beim Öffnen des Reports weitergeschoben. */
+let FEHLER_NEU = 0;
+
+async function fehlerStandHolen(){
+  if(!istAdmin()) return;
+  try{
+    const {data, error} = await sb.rpc('fehler_stand');
+    if(error) return;
+    FEHLER_NEU = (data && data.neu) || 0;
+    if(FEHLER_NEU) navBauen();
+  }catch(e){ /* still: ein Hinweis darf nie den Start aufhalten */ }
+}
+
+async function fehlerQuittieren(){
+  FEHLER_NEU = 0;
+  navBauen();
+  try{ await sb.rpc('fehler_quittieren'); }catch(e){}
+}
+
 /* Gerätekennung auf das Nötige eindampfen. */
 function fehlerGeraet(s){
   return /iPhone|iPad/.test(s||'') ? 'iPhone'
@@ -3191,6 +3220,8 @@ async function renderFehler(){
   if(error){ $('#fehler-inhalt').innerHTML = `<p class="hinweis schlecht">${esc(fehlertext(error))}</p>`; return; }
   FEHLER_ALLE = data;
   fehlerReportZeichnen();
+  /* Gesehen ist gesehen: der Punkt an „Mehr" verschwindet. */
+  fehlerQuittieren();
 }
 
 function fehlerReportZeichnen(){
@@ -3373,6 +3404,7 @@ async function starten(){
   }
   await ladeFortschritt();
   warteschlangeAbarbeiten();
+  fehlerStandHolen();
   sb.rpc('aktiv_melden').then(()=>{}, ()=>{});
   /* Der Lehrplan bestimmt, wie Themenfelder gruppiert werden – auch auf der
      Übersicht. Deshalb gleich mitladen und die Übersicht danach auffrischen. */
@@ -3401,7 +3433,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-14-2';
+const FASSUNG = 'tt-2026-08-14-3';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
 /* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
 const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);

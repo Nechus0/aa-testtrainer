@@ -54,6 +54,12 @@ nav button{background:none;border:0;padding:26px 13px;font-size:15.5px;color:var
 /* Klappmenü im Kopf */
 .hd{position:relative}
 nav button.mehr{display:inline-flex;align-items:center;gap:8px}
+/* Ein einzelner Punkt an "Mehr", wenn im Fehlerreport Neues liegt. Nur
+   Administratoren bekommen ihn zu sehen; er ersetzt die frühere Benachrichtigung
+   von aussen. Keine Zahl, kein Band - ein Punkt reicht als Anlass hinzusehen. */
+nav button.hatneu{position:relative}
+nav button.hatneu::after{content:"";position:absolute;top:19px;right:5px;
+  width:7px;height:7px;border-radius:50%;background:var(--rot)}
 nav button.mehr .pfeil{font-size:10px;color:var(--muted-2);transition:transform .15s}
 nav button.mehr.offen .pfeil{transform:rotate(180deg)}
 nav button.mehr.offen{color:var(--ink)}
@@ -717,6 +723,8 @@ button.zeile{cursor:pointer}
   nav button[data-v=fragen]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M4.4%206.4h15.2v9.3h-8.7L6.7%2018.9v-3.2H4.4z%22%2F%3E%3Cpath%20d%3D%22M9.4%2010.9h5.2%22%2F%3E%3C%2Fsvg%3E")}
   nav button[data-v=mehr]{--ic:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%228.4%22%20r%3D%223.6%22%2F%3E%3Cpath%20d%3D%22M5.4%2019.7c1.2-3.2%203.6-4.9%206.6-4.9s5.4%201.7%206.6%204.9%22%2F%3E%3C%2Fsvg%3E")}
   nav button.mehr .pfeil{ display:none; }
+  /* In der Tab-Leiste sitzt der Punkt an der Ecke des Symbols. */
+  nav button.hatneu::after{ top:2px; right:calc(50% - 16px) }
 
   /* Das Klappmenü öffnet nach oben, über der Leiste. */
   #navpop{
