@@ -783,6 +783,15 @@ button.zeile{cursor:pointer}
   .feld.lp-zeile .qt{ order:4; width:auto; margin-left:21px; font-size:14.5px }
   .feld.lp-zeile .ct{ order:5; width:auto; flex:1 1 auto; text-align:left; font-size:12.5px }
   .feld.lp-kopf .nm{ flex:1 1 100% }
+  /* Vorratszeilen genauso: der Abschnittsname steht allein, darunter Umfang
+     und – nur beim naechsten Abschnitt – die Taste zum Freigeben. */
+  .feld.vorratzeile{ gap:6px 10px; flex-wrap:wrap; padding:12px 16px }
+  .feld.vorratzeile .sq{ order:1 }
+  .feld.vorratzeile .nm{ order:2; flex:1 1 calc(100% - 46px); min-width:0; white-space:normal;
+    overflow:visible; text-overflow:clip; line-height:1.35 }
+  .feld.vorratzeile .ct{ order:3; width:auto; flex:1 1 auto; text-align:left;
+    margin-left:21px; font-size:12.5px }
+  .feld.vorratzeile > span:last-child{ order:4 }
   .lp-brot{ padding:12px 16px }
   .lp-kopf3{ padding:14px 18px 16px }
   .lp-titel{ font-size:18px }

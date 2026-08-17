@@ -2790,12 +2790,99 @@ function tagesstandKachel(){
     : (t.tagLuecke===null ? 'Bisher hat noch kein Lauf geschrieben.'
        : (t.tagLuecke<=1 ? 'Der letzte Lauf liegt einen Tag zurück – der heutige steht noch aus.'
                          : `Seit ${t.tagLuecke} Tagen ist nichts hinzugekommen.`));
+  /* Für Administratoren steht hier zusätzlich, wie weit der Vorrat reicht. */
+  const vorrat = (istAdmin() && VORRAT)
+    ? ` · ${VORRAT.tage} ${VORRAT.tage===1?'Tag':'Tage'} vorbereitet` : '';
   return `<button class="kachel" data-v="tagesstand">
       <h3>Tägliche Fragen <span class="ampel ${zustand}"></span></h3>
       <p>${esc(satz)} ${t.tage.length} ${t.tage.length===1?'Lauf':'Läufe'} bisher,
          zusammen ${t.fragenAusLaeufen} Fragen.</p>
-      <span class="zahl">nächster Lauf ${esc(uhr)} Uhr</span>
+      <span class="zahl">nächster Lauf ${esc(uhr)} Uhr${vorrat}</span>
     </button>`;
+}
+
+/* ---- Vorrat: was noch aussteht -------------------------------------------
+   Die fertigen Abschnitte liegen in Vorratstabellen und werden von einem
+   Auftrag in der Datenbank taeglich um 6 Uhr Berliner Zeit einzeln
+   freigeschaltet. Claude ist daran nicht beteiligt. Administratoren sehen
+   hier den Bestand und koennen den naechsten Abschnitt vorziehen. */
+let VORRAT = null;            /* Ergebnis von vorrat_stand() */
+let VORRAT_LAEUFT = false;    /* eine Abfrage genuegt */
+let VORRAT_VERSUCHT = false;  /* auch ein Fehlschlag beendet das Nachladen */
+let VORRAT_MEHR = 7;
+
+async function vorratLaden(){
+  if(!istAdmin()) return;
+  if(VORRAT_LAEUFT) return;
+  VORRAT_LAEUFT = true;
+  try{
+    const {data, error} = await sb.rpc('vorrat_stand');
+    if(!error && data && data.erlaubt) VORRAT = data;
+  }catch(e){ /* der Vorrat ist eine Beigabe, kein Grund zum Scheitern */ }
+  VORRAT_VERSUCHT = true;
+  VORRAT_LAEUFT = false;
+}
+
+/* Den naechsten fertigen Abschnitt von Hand freischalten. Freigegeben wird
+   immer der aelteste – die Abschnitte bauen aufeinander auf. Der Rest rueckt
+   danach um einen Tag vor, damit keine Luecke entsteht. */
+async function vorratFreigeben(knopf){
+  const naechst = VORRAT && VORRAT.bloecke && VORRAT.bloecke[0];
+  if(!naechst) return;
+  if(!confirm(naechst.block + ' jetzt freigeben?\n\n'
+    + (naechst.fach + naechst.franz) + ' Aufgaben stehen danach sofort in der Anwendung. '
+    + 'Die übrigen Abschnitte rücken um einen Tag vor.')) return;
+  if(knopf){ knopf.disabled = true; knopf.textContent = 'wird freigegeben …'; }
+  try{
+    const {data, error} = await sb.rpc('vorrat_freigeben_admin');
+    if(error) throw error;
+    if(data && data.fehler){ toast(data.fehler); return; }
+    toast(data.block + ' ist freigegeben.');
+    await ladeFragen();
+    await vorratLaden();
+    renderTagesstand();
+  }catch(e){
+    toast(fehlertext(e));
+    if(knopf){ knopf.disabled = false; knopf.textContent = 'Jetzt freigeben'; }
+  }
+}
+
+function vorratAbschnitt(){
+  if(!istAdmin()) return '';
+  if(!VORRAT){
+    return VORRAT_VERSUCHT ? '' : `<div class="sec">
+      <div class="sec-h"><h2>Vorbereitet</h2></div>
+      <div class="card"><div class="empty">wird geladen …</div></div></div>`;
+  }
+  const kurz = (iso)=> iso ? new Date(iso).toLocaleDateString('de-DE',
+      {weekday:'short', day:'numeric', month:'long'}) : '–';
+  const b = VORRAT.bloecke || [];
+  const zeige = b.slice(0, VORRAT_MEHR);
+  const rest = b.length - zeige.length;
+
+  return `<div class="sec">
+    <div class="sec-h"><h2>Vorbereitet</h2><span class="note">nur für Administratoren</span></div>
+    <div class="card pad" style="margin-bottom:14px">
+      <p class="small" style="margin:0">${b.length
+        ? `<b style="color:var(--ink)">${b.length} ${b.length===1?'Tag':'Tage'} im Vorrat</b>,
+           reicht bis ${esc(kurz(VORRAT.letzter))}. Freigegeben wird täglich um 6 Uhr
+           von der Datenbank selbst.`
+        : `<b style="color:var(--ink)">Der Vorrat ist leer.</b>
+           Ab morgen kommt kein neuer Abschnitt mehr.`}</p>
+    </div>
+    <div class="card">
+      ${zeige.length? zeige.map((p,i)=>`<div class="feld vorratzeile">
+        <span class="sq" style="--kc:var(${i? '--muted-2':'--ink'})"></span>
+        <span class="nm">${esc(p.block)}<small style="display:block;color:var(--muted-2);font-size:12.5px">${
+          i? esc(kurz(p.freigabe_am)) : 'als Nächstes · '+esc(kurz(p.freigabe_am))}</small></span>
+        <span class="ct" style="width:auto">${p.fach+p.franz} Fragen${p.texte? ' · '+p.texte+' Texte':''}</span>
+        ${i===0? `<span style="flex:none"><button class="btn ghost sm" id="vorrat-frei">Jetzt freigeben</button></span>`:''}
+      </div>`).join('') : '<div class="empty">Nichts vorbereitet.</div>'}
+      ${rest>0
+        ? `<div class="morerow"><button class="link" id="vorrat-mehr">Weitere ${rest} anzeigen</button></div>`
+        : (VORRAT_MEHR>7 && b.length>7 ? `<div class="morerow"><button class="link" id="vorrat-weniger">Wieder einklappen</button></div>`:'')}
+    </div>
+  </div>`;
 }
 
 function renderTagesstand(){
@@ -2826,13 +2913,15 @@ function renderTagesstand(){
              Der nächste Lauf schreibt morgen früh um 6 Uhr.</p></div>`
       : `<div class="hinweis fehler" style="margin-bottom:26px">
           ${t.tagLuecke===null
-            ? `<b>Noch kein Lauf.</b> Die geplante Aufgabe hat bisher keinen Abschnitt geschrieben.`
+            ? `<b>Noch kein Lauf.</b> Bisher ist kein täglicher Abschnitt freigeschaltet worden.`
             : `<b>Heute noch nichts.</b> Der letzte Abschnitt stammt vom ${esc(datum(t.letzter&&t.letzter.stand))}
                – das ist ${t.tagLuecke} ${t.tagLuecke===1?'Tag':'Tage'} her. Ein ausgefallener Tag bleibt folgenlos:
-               die Aufgabe zählt vom höchsten vorhandenen Abschnitt weiter, nicht vom Kalender.`}
+               freigeschaltet wird immer der nächste vorbereitete Abschnitt, nicht der zum Kalender passende.`}
          </div>`}
 
-    <div class="sec" style="margin-top:0">
+    ${vorratAbschnitt()}
+
+    <div class="sec" ${istAdmin()? '' : 'style="margin-top:0"'}>
       <div class="sec-h"><h2>Die einzelnen Läufe</h2><span class="note">neueste zuerst</span></div>
       <div class="card">
         ${zeige.length? zeige.map(p=>{
@@ -2870,7 +2959,8 @@ function renderTagesstand(){
       <div class="sec-h"><h2>Wie der Lauf arbeitet</h2></div>
       <div class="card pad">
         <p class="small" style="margin:0">Jeden Morgen um 6 Uhr kommt <b>Tag N</b>: 75 Fachtestfragen und ein
-          Sprachtestsatz. Welche Themenfelder drankommen, bestimmt der Lehrplan.</p>
+          Sprachtestsatz. Welche Themenfelder drankommen, bestimmt der Lehrplan.
+          Die Abschnitte sind fertig vorbereitet; freigeschaltet werden sie von der Datenbank selbst.</p>
       </div>
     </div>`;
 
@@ -2880,6 +2970,15 @@ function renderTagesstand(){
   });
   const m=$('#ts-mehr'); if(m) m.onclick=()=>{ TS_MEHR+=10; renderTagesstand(); };
   const w=$('#ts-weniger'); if(w) w.onclick=()=>{ TS_MEHR=10; renderTagesstand(); };
+  const vm=$('#vorrat-mehr'); if(vm) vm.onclick=()=>{ VORRAT_MEHR=999; renderTagesstand(); };
+  const vw=$('#vorrat-weniger'); if(vw) vw.onclick=()=>{ VORRAT_MEHR=7; renderTagesstand(); };
+  const vf=$('#vorrat-frei'); if(vf) vf.onclick=()=>vorratFreigeben(vf);
+
+  /* Der Vorrat kommt aus der Datenbank und darf die Seite nicht aufhalten:
+     erst zeichnen, dann nachladen und ein einziges Mal neu zeichnen. */
+  if(istAdmin() && !VORRAT && !VORRAT_VERSUCHT && !VORRAT_LAEUFT){
+    vorratLaden().then(()=>{ if(ANSICHT==='tagesstand') renderTagesstand(); });
+  }
 }
 let TS_MEHR = 10;
 
@@ -2909,6 +3008,11 @@ function renderMehr(){
          <span class="zahl">Prüfung am 1. September 2026</span>
        </div>`;
   $$('#mehrgitter [data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
+
+  /* Damit auf der Kachel gleich steht, wie weit der Vorrat reicht. */
+  if(istAdmin() && !VORRAT && !VORRAT_VERSUCHT && !VORRAT_LAEUFT){
+    vorratLaden().then(()=>{ if(ANSICHT==='mehr' && VORRAT) renderMehr(); });
+  }
 }
 
 /* =====================================================================
@@ -3575,7 +3679,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-14-6';
+const FASSUNG = 'tt-2026-08-14-7';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
 /* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
 const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
