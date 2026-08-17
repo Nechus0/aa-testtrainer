@@ -2889,10 +2889,9 @@ function renderTagesstand(){
   const t = tagesstand();
   const datum = (iso)=> iso ? new Date(iso).toLocaleDateString('de-DE',
       {weekday:'long', day:'numeric', month:'long', year:'numeric'}) : 'unbekannt';
-  const l = letzteJeFrage();
-  const gezeigt = t.tage.slice().reverse();
-  const zeige = gezeigt.slice(0, TS_MEHR);
 
+  /* Nutzer sehen nur die vier Zahlen und den Zustand. Alles darunter –
+     Vorrat, feste Abschnitte, die Arbeitsweise – ist Verwaltungssache. */
   $('#ts-inhalt').innerHTML = `
     <div class="grid g4" style="margin-bottom:26px">
       <div class="card kpi"><div class="lab">Läufe bisher</div><div class="val">${t.tage.length}</div>
@@ -2919,31 +2918,7 @@ function renderTagesstand(){
                freigeschaltet wird immer der nächste vorbereitete Abschnitt, nicht der zum Kalender passende.`}
          </div>`}
 
-    ${vorratAbschnitt()}
-
-    <div class="sec" ${istAdmin()? '' : 'style="margin-top:0"'}>
-      <div class="sec-h"><h2>Die einzelnen Läufe</h2><span class="note">neueste zuerst</span></div>
-      <div class="card">
-        ${zeige.length? zeige.map(p=>{
-          const fragen = ALLES.filter(q=>q.block===p.block);
-          const auf = fragen.filter(q=>l[q.id]).length;
-          const proz = fragen.length? Math.round(auf/fragen.length*100) : 0;
-          return `<div class="feld">
-            <span class="sq" style="--kc:var(--ink)"></span>
-            <span class="nm">${esc(p.block)}<small style="display:block;color:var(--muted-2);font-size:12.5px">${
-              esc(datum(p.stand))}</small></span>
-            <span class="bar"><i style="width:${proz}%"></i></span>
-            <span class="qt tnum" style="width:74px">${auf}/${p.n}</span>
-            <span style="flex:none"><button class="btn ghost sm" data-ts-ueben="${esc(p.block)}">Üben</button></span>
-          </div>`;
-        }).join('') : '<div class="empty">Noch kein täglicher Lauf.</div>'}
-        ${gezeigt.length>zeige.length
-          ? `<div class="morerow"><button class="link" id="ts-mehr">Weitere ${
-               Math.min(10, gezeigt.length-zeige.length)} von ${gezeigt.length-zeige.length} anzeigen</button></div>`
-          : (TS_MEHR>10? `<div class="morerow"><button class="link" id="ts-weniger">Wieder einklappen</button></div>`:'')}
-      </div>
-    </div>
-
+    ${!istAdmin() ? '' : vorratAbschnitt() + `
     <div class="sec">
       <div class="sec-h"><h2>Feste Abschnitte</h2><span class="note">bleiben unverändert</span></div>
       <div class="card">
@@ -2962,14 +2937,8 @@ function renderTagesstand(){
           Sprachtestsatz. Welche Themenfelder drankommen, bestimmt der Lehrplan.
           Die Abschnitte sind fertig vorbereitet; freigeschaltet werden sie von der Datenbank selbst.</p>
       </div>
-    </div>`;
+    </div>`}`;
 
-  $$('#ts-inhalt [data-ts-ueben]').forEach(b=>b.onclick=()=>{
-    const ids = ALLES.filter(q=>q.block===b.dataset.tsUeben).map(q=>q.id);
-    if(ids.length) start({typ:'auswahl', zeit:0, titel:'Übung · '+b.dataset.tsUeben, ids});
-  });
-  const m=$('#ts-mehr'); if(m) m.onclick=()=>{ TS_MEHR+=10; renderTagesstand(); };
-  const w=$('#ts-weniger'); if(w) w.onclick=()=>{ TS_MEHR=10; renderTagesstand(); };
   const vm=$('#vorrat-mehr'); if(vm) vm.onclick=()=>{ VORRAT_MEHR=999; renderTagesstand(); };
   const vw=$('#vorrat-weniger'); if(vw) vw.onclick=()=>{ VORRAT_MEHR=7; renderTagesstand(); };
   const vf=$('#vorrat-frei'); if(vf) vf.onclick=()=>vorratFreigeben(vf);
@@ -2980,10 +2949,8 @@ function renderTagesstand(){
     vorratLaden().then(()=>{ if(ANSICHT==='tagesstand') renderTagesstand(); });
   }
 }
-let TS_MEHR = 10;
 
 function renderMehr(){
-  const l=letzteJeFrage();
   const kacheln = [
     {v:'konto', t:'Konto', p:'Name, Passwort, Fortschritt sichern und die Anleitung, wie der Trainer als App auf dem iPhone landet.',
      z: esc(PROFIL.email)},
@@ -3000,13 +2967,7 @@ function renderMehr(){
 
   $('#mehrgitter').innerHTML = kacheln.map(k=>
     `<button class="kachel" data-v="${k.v}"><h3>${esc(k.t)}</h3><p>${esc(k.p)}</p><span class="zahl">${k.z}</span></button>`).join('')
-    + tagesstandKachel()
-    + `<div class="kachel" style="cursor:default">
-         <h3>Bestand</h3>
-         <p>${ALLES.length} Fragen in ${[...new Set(ALLES.map(q=>q.block))].length} Abschnitten ·
-            ${Object.keys(l).length} davon bearbeitet · ${MARKIERT.size} markiert.</p>
-         <span class="zahl">Prüfung am 1. September 2026</span>
-       </div>`;
+    + tagesstandKachel();
   $$('#mehrgitter [data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
 
   /* Damit auf der Kachel gleich steht, wie weit der Vorrat reicht. */
@@ -3679,7 +3640,7 @@ window.addEventListener('online', ()=>{ if(PROFIL) warteschlangeAbarbeiten(); })
    Vordergrund neu geprüft; übernimmt eine neue Fassung, lädt die Seite
    genau einmal nach.
    ===================================================================== */
-const FASSUNG = 'tt-2026-08-14-7';
+const FASSUNG = 'tt-2026-08-14-8';
 let SW_REG = null, SW_NEULADEN = false, SW_SPAETER = false, SW_GEMELDET = false, SW_UEBERNAHME = false;
 /* Ob diese Seite beim Laden bereits von einem Dienst bedient wurde. */
 const SW_HATTE_STEUERUNG = !!(navigator.serviceWorker && navigator.serviceWorker.controller);

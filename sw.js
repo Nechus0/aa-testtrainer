@@ -8,7 +8,7 @@
       Deshalb jede Datei einzeln und Fehler geschluckt.
    3. clients.claim() nur beim allerersten Dienst (wenn vorher keiner die Kontrolle
       hatte). Danach uebernimmt der Dienst mit dem Neuladen der Seite. */
-const VERSION = 'tt-2026-08-14-7';
+const VERSION = 'tt-2026-08-14-8';
 const SCHALE = [
   './',
   './index.html',
